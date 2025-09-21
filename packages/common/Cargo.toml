@@ -1,0 +1,12 @@
+[package]
+edition = "2024"
+name = "aionix-common"
+version = { workspace = true }
+
+[lints]
+workspace = true
+
+[dependencies]
+
+
+[features]
