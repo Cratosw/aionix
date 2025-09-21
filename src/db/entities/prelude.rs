@@ -12,6 +12,9 @@ pub use super::document::{Entity as Document, *};
 pub use super::document_chunk::{Entity as DocumentChunk, *};
 pub use super::embedding::{Entity as Embedding, *};
 
-// Agent 相关实体（将在后续任务中实现）
-// pub use super::agent::{Entity as Agent, *};
-// pub use super::workflow::{Entity as Workflow, *};
+// Agent 相关实体
+pub use super::agent::{Entity as Agent, *};
+pub use super::agent_execution::{Entity as AgentExecution, *};
+pub use super::workflow::{Entity as Workflow, *};
+pub use super::workflow_execution::{Entity as WorkflowExecution, *};
+pub use super::step_execution::{Entity as StepExecution, *};

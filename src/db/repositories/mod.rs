@@ -11,6 +11,10 @@ pub mod document;
 pub mod document_chunk;
 pub mod embedding;
 
+// Agent 相关仓储
+pub mod agent;
+pub mod workflow;
+
 pub use tenant::TenantRepository;
 pub use user::UserRepository;
 pub use session::SessionRepository;
@@ -20,3 +24,7 @@ pub use knowledge_base::KnowledgeBaseRepository;
 pub use document::DocumentRepository;
 pub use document_chunk::DocumentChunkRepository;
 pub use embedding::EmbeddingRepository;
+
+// Agent 相关仓储导出
+pub use agent::AgentRepository;
+pub use workflow::WorkflowRepository;

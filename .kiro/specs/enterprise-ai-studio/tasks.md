@@ -52,7 +52,7 @@
   - 实现相关的关联关系和查询方法
   - _需求: 3.1, 3.2, 3.5_
 
-- [ ] 2.4 实现 Agent 和工作流数据模型
+- [x] 2.4 实现 Agent 和工作流数据模型
   - 创建 Agent（agents）和执行记录（agent_executions）实体
   - 创建工作流（workflows）和执行记录（workflow_executions）实体
   - 创建步骤执行（step_executions）实体

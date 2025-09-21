@@ -11,9 +11,12 @@ pub mod document;
 pub mod document_chunk;
 pub mod embedding;
 
-// Agent 相关实体（将在后续任务中实现）
-// pub mod agent;
-// pub mod workflow;
+// Agent 相关实体
+pub mod agent;
+pub mod agent_execution;
+pub mod workflow;
+pub mod workflow_execution;
+pub mod step_execution;
 
 pub mod prelude;
 pub use prelude::*;
