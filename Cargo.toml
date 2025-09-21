@@ -72,6 +72,7 @@ futures = "0.3"
 async-trait = "0.1"
 once_cell = "1.0"
 lazy_static = "1.4"
+url = "2.0"
 
 # 本地包
 aionix-common = { path = "./packages/common" }
