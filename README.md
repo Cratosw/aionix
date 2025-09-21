@@ -22,18 +22,37 @@ aionix/
 
 ## 技术栈
 
-- **Web 框架**: Actix Web 4.x
-- **ORM**: SeaORM 0.12.x
-- **数据库**: PostgreSQL + pgvector
-- **AI 框架**: Rig (待集成)
-- **缓存**: Redis (待集成)
+- **Web 框架**: Actix Web 4.x + CORS + HTTP Auth
+- **ORM**: SeaORM 0.12.x + SQLx
+- **数据库**: PostgreSQL + pgvector (向量数据库)
+- **AI 框架**: Rig Core
+- **缓存**: Redis
+- **认证**: JWT + bcrypt
+- **日志**: tracing + tracing-subscriber
+- **API 文档**: utoipa + Swagger UI
 
 ## 快速开始
+
+### 环境准备
+
+1. 复制环境变量配置文件：
+```bash
+cp .env.example .env
+```
+
+2. 根据需要修改 `.env` 文件中的配置
 
 ### 构建项目
 
 ```bash
+# 检查代码
+cargo check
+
+# 构建项目
 cargo build
+
+# 构建发布版本
+cargo build --release
 ```
 
 ### 运行测试
@@ -49,6 +68,10 @@ cargo run
 ```
 
 服务器将在 `http://127.0.0.1:8080` 启动。
+
+### 功能特性
+
+项目支持多种功能特性，详见 [功能特性文档](docs/features.md)。
 
 ### API 端点
 

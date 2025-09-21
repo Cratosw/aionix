@@ -2,13 +2,13 @@
 
 ## 1. 项目基础设施和核心配置
 
-- [ ] 1.1 创建基础项目结构和入口点
+- [x] 1.1 创建基础项目结构和入口点
   - 创建 `src/main.rs` 作为应用程序入口点
   - 创建基础的 Actix Web 服务器配置
   - 设置基本的路由和健康检查端点
   - _需求: 9.1, 8.4_
 
-- [ ] 1.2 完善项目依赖和 Cargo.toml 配置
+- [x] 1.2 完善项目依赖和 Cargo.toml 配置
   - 添加所有必需的依赖项（tokio、uuid、chrono、thiserror、tracing 等）
   - 添加 rig 框架用于 AI 集成
   - 添加 pgvector 支持和 Redis 客户端
