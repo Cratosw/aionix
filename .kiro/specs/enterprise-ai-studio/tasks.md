@@ -38,14 +38,14 @@
   - 创建数据库初始化和健康检查功能
   - _需求: 1.3, 10.3_
 
-- [ ] 2.2 设计和实现核心数据库实体
+- [x] 2.2 设计和实现核心数据库实体
   - 创建 `src/db/entities/` 目录结构
   - 实现租户（tenants）实体模型和 SeaORM 定义
   - 实现用户（users）和会话（sessions）实体
   - 添加基础的 CRUD 操作和查询方法
   - _需求: 1.1, 1.2_
 
-- [ ] 2.3 实现知识库相关数据模型
+- [x] 2.3 实现知识库相关数据模型
   - 创建知识库（knowledge_bases）实体
   - 创建文档（documents）和文档块（document_chunks）实体
   - 创建向量嵌入（embeddings）实体，支持 pgvector
