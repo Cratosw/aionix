@@ -4,11 +4,13 @@ mod health;
 mod config;
 mod errors;
 mod logging;
+mod db;
 
 use health::{health_check, index};
 use config::ConfigLoader;
 use errors::{ErrorHandlerMiddleware, RequestIdMiddleware};
 use logging::LoggingSetup;
+use db::{DatabaseManager, MigrationManager};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -21,6 +23,28 @@ async fn main() -> std::io::Result<()> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     
     tracing::info!("🚀 启动 Aionix AI Studio v{}", config.environment.version);
+
+    // 初始化数据库连接
+    DatabaseManager::init(config.database.clone())
+        .await
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    // 初始化数据库迁移系统
+    MigrationManager::init()
+        .await
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    // 检查并应用待处理的迁移
+    match MigrationManager::apply_pending_migrations().await {
+        Ok(applied) => {
+            if !applied.is_empty() {
+                tracing::info!("应用了 {} 个数据库迁移", applied.len());
+            }
+        }
+        Err(e) => {
+            tracing::warn!("数据库迁移检查失败: {}", e);
+        }
+    }
     
     // 打印配置摘要
     ConfigLoader::print_summary();

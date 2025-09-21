@@ -5,5 +5,6 @@ pub mod health;
 pub mod config;
 pub mod errors;
 pub mod logging;
+pub mod db;
 
 pub use health::*;

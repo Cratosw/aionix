@@ -1,10 +1,19 @@
 // 数据库实体模块
 // 包含所有 SeaORM 实体定义
 
-// 实体模块将在后续任务中添加
-// pub mod tenant;
-// pub mod user;
+pub mod tenant;
+pub mod user;
+pub mod session;
+pub mod prelude;
+
+// 知识库相关实体（将在后续任务中实现）
 // pub mod knowledge_base;
 // pub mod document;
+// pub mod document_chunk;
+// pub mod embedding;
+
+// Agent 相关实体（将在后续任务中实现）
 // pub mod agent;
 // pub mod workflow;
+
+pub use prelude::*;

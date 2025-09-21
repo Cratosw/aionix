@@ -3,5 +3,14 @@
 
 pub mod connection;
 pub mod entities;
+pub mod migrations;
+pub mod health;
+pub mod repositories;
+
+#[cfg(test)]
+mod tests;
 
 pub use connection::*;
+pub use health::*;
+pub use migrations::*;
+pub use repositories::*;
