@@ -4,6 +4,7 @@
 pub mod tenant;
 pub mod user;
 pub mod session;
+pub mod api_key;
 
 // 知识库相关实体
 pub mod knowledge_base;

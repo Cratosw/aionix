@@ -5,6 +5,7 @@
 pub use super::tenant::{Entity as Tenant, *};
 pub use super::user::{Entity as User, *};
 pub use super::session::{Entity as Session, *};
+pub use super::api_key::{Entity as ApiKey, *};
 
 // 知识库相关实体
 pub use super::knowledge_base::{Entity as KnowledgeBase, *};
