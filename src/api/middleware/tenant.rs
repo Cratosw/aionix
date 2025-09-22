@@ -84,7 +84,7 @@ impl<S, B> Transform<S, ServiceRequest> for TenantIdentificationMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -175,8 +175,7 @@ where
             }
 
             let fut = self.service.call(req);
-            let res = fut.await?.map_into_boxed_body();
-            Ok(res)
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
@@ -188,7 +187,7 @@ impl<S, B> Transform<S, ServiceRequest> for TenantIsolationMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -267,8 +266,7 @@ where
             }
 
             let fut = self.service.call(req);
-            let res = fut.await?.map_into_boxed_body();
-            Ok(res)
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
@@ -312,7 +310,7 @@ async fn identify_tenant_from_header(req: &ServiceRequest) -> Result<Option<Tena
 
     if let Some(tenant_id_str) = tenant_id_header {
         let tenant_id = Uuid::parse_str(tenant_id_str)
-            .map_err(|_| AiStudioError::validation("无效的租户 ID 格式".to_string()))?;
+            .map_err(|_| AiStudioError::validation("tenant_id", "无效的租户 ID 格式"))?;
         
         return get_tenant_by_id(tenant_id).await.map(Some);
     }
@@ -359,7 +357,7 @@ async fn identify_tenant_from_path_param(req: &ServiceRequest) -> Result<Option<
     {
         if let Some(tenant_id_str) = captures.get(1) {
             let tenant_id = Uuid::parse_str(tenant_id_str.as_str())
-                .map_err(|_| AiStudioError::validation("无效的租户 ID 格式".to_string()))?;
+                .map_err(|_| AiStudioError::validation("tenant_id", "无效的租户 ID 格式"))?;
             
             return get_tenant_by_id(tenant_id).await.map(Some);
         }
@@ -392,7 +390,7 @@ async fn identify_tenant_from_query_param(req: &ServiceRequest) -> Result<Option
 
     if let Some(tenant_id_str) = params.get("tenant_id") {
         let tenant_id = Uuid::parse_str(tenant_id_str)
-            .map_err(|_| AiStudioError::validation("无效的租户 ID 格式".to_string()))?;
+            .map_err(|_| AiStudioError::validation("tenant_id", "无效的租户 ID 格式"))?;
         
         return get_tenant_by_id(tenant_id).await.map(Some);
     }

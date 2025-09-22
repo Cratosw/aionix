@@ -19,6 +19,7 @@ use crate::db::DatabaseManager;
 use crate::db::entities::{tenant, user};
 use crate::errors::AiStudioError;
 use crate::api::responses::ErrorResponse;
+use sea_orm::{EntityTrait, ActiveModelTrait};
 
 /// JWT 声明结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,7 +93,7 @@ impl<S, B> Transform<S, ServiceRequest> for JwtAuthMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -180,8 +181,7 @@ where
             }
 
             let fut = self.service.call(req);
-            let res = fut.await?.map_into_boxed_body();
-            Ok(res)
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
@@ -209,7 +209,7 @@ impl<S, B> Transform<S, ServiceRequest> for ApiKeyAuthMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -323,8 +323,7 @@ where
             }
 
             let fut = self.service.call(req);
-            let res = fut.await?.map_into_boxed_body();
-            Ok(res)
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
@@ -336,9 +335,9 @@ impl<S, B> Transform<S, ServiceRequest> for OptionalAuthMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = OptionalAuthMiddlewareService<S>;
     type InitError = ();
@@ -357,9 +356,9 @@ impl<S, B> Service<ServiceRequest> for OptionalAuthMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -385,7 +384,7 @@ where
             }
 
             let fut = self.service.call(req);
-            fut.await
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }

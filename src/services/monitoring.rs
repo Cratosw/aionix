@@ -1,7 +1,7 @@
 // 监控服务
 // 处理资源使用统计、性能监控和告警
 
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait, QuerySelect};
 use uuid::Uuid;
 use chrono::{Utc, Duration, DateTime};
 use serde::{Deserialize, Serialize};

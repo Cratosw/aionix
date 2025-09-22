@@ -206,7 +206,7 @@ impl AuthService {
             user.id,
             user.tenant_id,
             user.username.clone(),
-            user.role.clone(),
+            format!("{}", match user.role { user::UserRole::Admin => "admin", user::UserRole::Manager => "manager", user::UserRole::User => "user", user::UserRole::Viewer => "viewer" }),
             self.get_user_permissions(&user).await?,
             self.is_admin_user(&user),
             &self.jwt_secret,
@@ -266,8 +266,11 @@ impl AuthService {
         let session = self.find_session_by_refresh_token(&request.refresh_token).await?;
 
         // 检查会话是否过期
-        if session.expires_at < Utc::now().into() {
-            return Err(AiStudioError::unauthorized("刷新令牌已过期".to_string()));
+        {
+            let expires_utc: chrono::DateTime<chrono::Utc> = session.expires_at.into();
+            if expires_utc < chrono::Utc::now() {
+                return Err(AiStudioError::unauthorized("刷新令牌已过期".to_string()));
+            }
         }
 
         // 获取用户信息
@@ -281,7 +284,7 @@ impl AuthService {
             user.id,
             user.tenant_id,
             user.username.clone(),
-            user.role.clone(),
+            format!("{}", match user.role { user::UserRole::Admin => "admin", user::UserRole::Manager => "manager", user::UserRole::User => "user", user::UserRole::Viewer => "viewer" }),
             self.get_user_permissions(&user).await?,
             self.is_admin_user(&user),
             &self.jwt_secret,
@@ -347,12 +350,20 @@ impl AuthService {
             password_hash: Set(password_hash),
             display_name: Set(request.display_name.clone()),
             avatar_url: Set(None),
-            // status: Set(user::UserStatus::Pending), // 需要邮箱验证
-            role: Set("user".to_string()),
+            status: Set(user::UserStatus::Pending),
+            role: Set(user::UserRole::User),
             permissions: Set(serde_json::json!(["read"])),
             preferences: Set(serde_json::json!({})),
-            last_login_at: Set(None),
+            metadata: Set(serde_json::json!({})),
+            phone: Set(None),
+            email_verified: Set(false),
             email_verified_at: Set(None),
+            phone_verified: Set(false),
+            phone_verified_at: Set(None),
+            last_login_at: Set(None),
+            last_login_ip: Set(None),
+            failed_login_attempts: Set(0),
+            locked_until: Set(None),
             created_at: Set(now.into()),
             updated_at: Set(now.into()),
         };
@@ -372,7 +383,7 @@ impl AuthService {
                 email: created_user.email,
                 display_name: created_user.display_name,
                 avatar_url: created_user.avatar_url,
-                role: created_user.role,
+                role: format!("{}", match created_user.role { user::UserRole::Admin => "admin", user::UserRole::Manager => "manager", user::UserRole::User => "user", user::UserRole::Viewer => "viewer" }),
                 permissions: serde_json::from_value(created_user.permissions).unwrap_or_default(),
                 last_login_at: created_user.last_login_at.map(|dt| dt.into()),
                 created_at: created_user.created_at.into(),
@@ -497,14 +508,21 @@ impl AuthService {
             id: Set(session_id),
             user_id: Set(user_id),
             tenant_id: Set(tenant_id),
-            session_token: Set(Uuid::new_v4().to_string()),
-            refresh_token: Set(Some(refresh_token.to_string())),
+            token_hash: Set(Uuid::new_v4().to_string()),
+            refresh_token_hash: Set(Some(refresh_token.to_string())),
             // status: Set(session::SessionStatus::Active),
-            ip_address: Set(client_ip.and_then(|ip| ip.parse().ok())),
+            client_ip: Set(client_ip),
             user_agent: Set(user_agent),
             expires_at: Set(expires_at.into()),
-            last_accessed_at: Set(now.into()),
+            last_activity_at: Set(now.into()),
             created_at: Set(now.into()),
+            updated_at: Set(now.into()),
+            session_type: Set(session::SessionType::Api),
+            status: Set(session::SessionStatus::Active),
+            device_info: Set(serde_json::json!({})),
+            metadata: Set(serde_json::json!({})),
+            refresh_expires_at: Set(None),
+            last_url: Set(None),
         };
 
         session.insert(&self.db).await?;
@@ -514,7 +532,7 @@ impl AuthService {
     /// 根据刷新令牌查找会话
     async fn find_session_by_refresh_token(&self, refresh_token: &str) -> Result<session::Model, AiStudioError> {
         Session::find()
-            .filter(session::Column::RefreshToken.eq(refresh_token))
+            .filter(session::Column::RefreshTokenHash.eq(refresh_token))
             .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::unauthorized("无效的刷新令牌".to_string()))
@@ -528,8 +546,8 @@ impl AuthService {
             .ok_or_else(|| AiStudioError::not_found("会话"))?
             .into();
 
-        session.refresh_token = Set(Some(new_refresh_token.to_string()));
-        session.last_accessed_at = Set(Utc::now().into());
+        session.refresh_token_hash = Set(Some(new_refresh_token.to_string()));
+        session.last_activity_at = Set(Utc::now().into());
 
         session.update(&self.db).await?;
         Ok(())

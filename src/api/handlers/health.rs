@@ -11,7 +11,7 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 
 /// 健康检查 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(health_check, health_detailed),
     components(schemas(HealthResponse, HealthStatus, DependencyHealth, SystemInfo))

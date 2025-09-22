@@ -136,7 +136,7 @@ impl RateLimitService {
         
         for policy in policies {
             let result = self.check_rate_limit(key_type.clone(), policy).await?;
-            results.push(result);
+            results.push(result.clone());
             
             // 如果任何一个策略不允许，就停止检查
             if !result.allowed {
@@ -222,7 +222,12 @@ impl RateLimitService {
         let window_start = now - policy.window_seconds as i64;
 
         // 使用 Redis 的 ZREMRANGEBYSCORE 清理过期的请求记录
-        let _: () = conn.zremrangebyscore(&key, 0, window_start).await
+        let _: () = redis::cmd("ZREMRANGEBYSCORE")
+            .arg(&key)
+            .arg(0)
+            .arg(window_start)
+            .query_async(&mut conn)
+            .await
             .map_err(|e| AiStudioError::internal(format!("清理过期记录失败: {}", e)))?;
 
         // 获取当前窗口内的请求数
@@ -249,7 +254,7 @@ impl RateLimitService {
                 .map_err(|e| AiStudioError::internal(format!("添加请求记录失败: {}", e)))?;
             
             // 设置过期时间
-            let _: () = conn.expire(&key, policy.window_seconds as usize).await
+            let _: () = conn.expire(&key, policy.window_seconds as i64).await
                 .map_err(|e| AiStudioError::internal(format!("设置过期时间失败: {}", e)))?;
         }
 
@@ -280,7 +285,7 @@ impl RateLimitService {
         let _: () = conn.zadd(&key, now, format!("req_{}", now)).await
             .map_err(|e| AiStudioError::internal(format!("添加请求记录失败: {}", e)))?;
         
-        let _: () = conn.expire(&key, policy.window_seconds as usize).await
+        let _: () = conn.expire(&key, policy.window_seconds as i64).await
             .map_err(|e| AiStudioError::internal(format!("设置过期时间失败: {}", e)))?;
 
         let count: u64 = conn.zcard(&key).await
@@ -304,7 +309,12 @@ impl RateLimitService {
         let now = Utc::now().timestamp();
         let window_start = now - policy.window_seconds as i64;
 
-        let _: () = conn.zremrangebyscore(&key, 0, window_start).await
+        let _: () = redis::cmd("ZREMRANGEBYSCORE")
+            .arg(&key)
+            .arg(0)
+            .arg(window_start)
+            .query_async(&mut conn)
+            .await
             .map_err(|e| AiStudioError::internal(format!("清理过期记录失败: {}", e)))?;
 
         let current_requests: u64 = conn.zcard(&key).await

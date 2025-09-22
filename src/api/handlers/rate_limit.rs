@@ -14,7 +14,7 @@ use crate::services::rate_limit::{
 use crate::errors::AiStudioError;
 
 /// 限流管理 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(
         get_rate_limit_stats,

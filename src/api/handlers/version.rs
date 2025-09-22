@@ -8,7 +8,7 @@ use crate::api::models::ApiVersion;
 use crate::api::responses::HttpResponseBuilder;
 
 /// 版本 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(get_version, get_build_info),
     components(schemas(ApiVersion))

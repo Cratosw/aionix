@@ -224,7 +224,7 @@ impl QuotaService {
 
         let mut quotas = Vec::new();
         let mut warnings = Vec::new();
-        let mut max_usage_percentage = 0.0;
+        let mut max_usage_percentage: f32 = 0.0;
 
         for quota_type in quota_types {
             let usage = self.get_quota_usage(&tenant, &quota_type).await?;
@@ -236,7 +236,7 @@ impl QuotaService {
                 warnings.push(format!("{:?} 使用率危险：{:.1}%", quota_type, usage.usage_percentage));
             }
 
-            max_usage_percentage = max_usage_percentage.max(usage.usage_percentage);
+            max_usage_percentage = max_usage_percentage.max(usage.usage_percentage as f32);
             quotas.push(usage);
         }
 

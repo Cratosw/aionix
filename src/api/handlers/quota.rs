@@ -15,7 +15,7 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 
 /// 配额管理 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(
         get_quota_stats,

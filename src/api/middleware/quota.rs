@@ -77,7 +77,7 @@ impl<S, B> Transform<S, ServiceRequest> for QuotaCheckMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -172,7 +172,7 @@ impl<S, B> Transform<S, ServiceRequest> for QuotaUpdateMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
     type Response = ServiceResponse<BoxBody>;
     type Error = Error;
@@ -205,7 +205,7 @@ where
         Box::pin(async move {
             let quota_update_info = req.extensions().get::<QuotaUpdateInfo>().cloned();
             
-            let res = self.service.call(req).await?.map_into_boxed_body();
+            let res = self.service.call(req).await?;
 
             // 如果请求成功且有配额更新信息，则更新配额
             if res.status().is_success() {
@@ -218,7 +218,7 @@ where
                 }
             }
 
-            Ok(res)
+            Ok(res.map_into_boxed_body())
         })
     }
 }
@@ -245,9 +245,9 @@ impl<S, B> Transform<S, ServiceRequest> for QuotaResetMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = QuotaResetMiddlewareService<S>;
     type InitError = ();
@@ -270,9 +270,9 @@ impl<S, B> Service<ServiceRequest> for QuotaResetMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -295,7 +295,7 @@ where
             }
 
             let fut = self.service.call(req);
-            fut.await
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }

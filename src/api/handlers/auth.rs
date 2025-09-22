@@ -13,7 +13,7 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 
 /// 认证 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(
         login,

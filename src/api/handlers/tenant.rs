@@ -15,7 +15,7 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 
 /// 租户管理 API 文档
-#[derive(OpenApi)]
+// #[derive(OpenApi)]
 #[openapi(
     paths(
         create_tenant,

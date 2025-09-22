@@ -4,6 +4,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse, Result as ActixResult,
+    body::BoxBody,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use std::future::{ready as std_ready, Ready as StdReady};
@@ -11,6 +12,7 @@ use std::rc::Rc;
 use uuid::Uuid;
 use tracing::{info, warn, error, instrument, debug};
 use serde::{Deserialize, Serialize};
+use sea_orm::EntityTrait;
 
 use crate::api::middleware::{
     auth::{AuthenticatedUser, ApiKeyInfo, JwtAuthMiddleware, ApiKeyAuthMiddleware},
@@ -159,9 +161,9 @@ impl<S, B> Transform<S, ServiceRequest> for AccessControlMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = AccessControlMiddlewareService<S>;
     type InitError = ();
@@ -184,9 +186,9 @@ impl<S, B> Service<ServiceRequest> for AccessControlMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -250,7 +252,7 @@ where
             req.extensions_mut().insert(context);
 
             let fut = self.service.call(req);
-            fut.await
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
