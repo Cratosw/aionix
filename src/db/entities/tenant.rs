@@ -2,9 +2,10 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// 租户状态枚举
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize, ToSchema)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "tenant_status")]
 pub enum TenantStatus {
     #[sea_orm(string_value = "active")]
@@ -91,7 +92,7 @@ impl Related<super::user::Entity> for Entity {
 impl ActiveModelBehavior for ActiveModel {}
 
 /// 租户配置结构
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TenantConfig {
     /// 时区设置
     pub timezone: String,
@@ -106,7 +107,7 @@ pub struct TenantConfig {
 }
 
 /// 租户功能开关
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TenantFeatures {
     /// 是否启用 AI 功能
     pub ai_enabled: bool,
@@ -121,7 +122,7 @@ pub struct TenantFeatures {
 }
 
 /// 租户配额限制
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TenantQuotaLimits {
     /// 最大用户数
     pub max_users: u32,
@@ -138,7 +139,7 @@ pub struct TenantQuotaLimits {
 }
 
 /// 租户使用统计
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TenantUsageStats {
     /// 当前用户数
     pub current_users: u32,

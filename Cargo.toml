@@ -99,5 +99,8 @@ url = "2.0"
 sha2 = "0.10"
 md5 = "0.7"
 
+# 正则表达式
+regex = "1.0"
+
 # 本地包
 aionix-common = { path = "./packages/common" }

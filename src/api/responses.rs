@@ -1,0 +1,465 @@
+// API 响应结构
+// 定义统一的 API 响应格式和错误处理
+
+use actix_web::{HttpResponse, ResponseError, Result as ActixResult};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
+use crate::errors::AiStudioError;
+
+/// 统一 API 响应结构
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ApiResponse<T> {
+    /// 是否成功
+    pub success: bool,
+    /// 响应数据
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<T>,
+    /// 错误信息
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ApiError>,
+    /// 请求 ID
+    pub request_id: String,
+    /// 响应时间戳
+    pub timestamp: DateTime<Utc>,
+    /// API 版本
+    pub version: String,
+}
+
+/// API 错误信息
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ApiError {
+    /// 错误代码
+    pub code: String,
+    /// 错误消息
+    pub message: String,
+    /// 错误详情
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
+    /// 错误字段（用于表单验证错误）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    /// 帮助链接
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_url: Option<String>,
+}
+
+/// 成功响应构建器
+pub struct SuccessResponse;
+
+impl SuccessResponse {
+    /// 创建成功响应
+    pub fn ok<T: Serialize>(data: T) -> ApiResponse<T> {
+        ApiResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建无数据成功响应
+    pub fn no_content() -> ApiResponse<()> {
+        ApiResponse {
+            success: true,
+            data: None,
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建创建成功响应
+    pub fn created<T: Serialize>(data: T) -> ApiResponse<T> {
+        ApiResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+}
+
+/// 错误响应构建器
+pub struct ErrorResponse;
+
+impl ErrorResponse {
+    /// 创建错误响应
+    pub fn error<T>(code: String, message: String) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code,
+                message,
+                details: None,
+                field: None,
+                help_url: None,
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建详细错误响应
+    pub fn detailed_error<T>(
+        code: String,
+        message: String,
+        details: Option<serde_json::Value>,
+        field: Option<String>,
+    ) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code,
+                message,
+                details,
+                field,
+                help_url: None,
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建验证错误响应
+    pub fn validation_error<T>(field: String, message: String) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "VALIDATION_ERROR".to_string(),
+                message,
+                details: None,
+                field: Some(field),
+                help_url: Some("https://docs.aionix.ai/api/validation".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建未授权错误响应
+    pub fn unauthorized<T>() -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "UNAUTHORIZED".to_string(),
+                message: "未授权访问".to_string(),
+                details: None,
+                field: None,
+                help_url: Some("https://docs.aionix.ai/api/authentication".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建禁止访问错误响应
+    pub fn forbidden<T>() -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "FORBIDDEN".to_string(),
+                message: "禁止访问".to_string(),
+                details: None,
+                field: None,
+                help_url: Some("https://docs.aionix.ai/api/permissions".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建资源不存在错误响应
+    pub fn not_found<T>(resource: &str) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "NOT_FOUND".to_string(),
+                message: format!("{} 不存在", resource),
+                details: None,
+                field: None,
+                help_url: None,
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建冲突错误响应
+    pub fn conflict<T>(message: String) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "CONFLICT".to_string(),
+                message,
+                details: None,
+                field: None,
+                help_url: None,
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建配额超限错误响应
+    pub fn quota_exceeded<T>(resource: &str) -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "QUOTA_EXCEEDED".to_string(),
+                message: format!("{} 配额已超限", resource),
+                details: None,
+                field: None,
+                help_url: Some("https://docs.aionix.ai/api/quotas".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建限流错误响应
+    pub fn rate_limited<T>() -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "RATE_LIMITED".to_string(),
+                message: "请求频率过高，请稍后重试".to_string(),
+                details: None,
+                field: None,
+                help_url: Some("https://docs.aionix.ai/api/rate-limits".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+
+    /// 创建内部服务器错误响应
+    pub fn internal_error<T>() -> ApiResponse<T> {
+        ApiResponse {
+            success: false,
+            data: None,
+            error: Some(ApiError {
+                code: "INTERNAL_ERROR".to_string(),
+                message: "内部服务器错误".to_string(),
+                details: None,
+                field: None,
+                help_url: Some("https://docs.aionix.ai/api/errors".to_string()),
+            }),
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+}
+
+/// HTTP 响应构建器
+pub struct HttpResponseBuilder;
+
+impl HttpResponseBuilder {
+    /// 创建 200 OK 响应
+    pub fn ok<T: Serialize>(data: T) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Ok().json(SuccessResponse::ok(data)))
+    }
+
+    /// 创建 201 Created 响应
+    pub fn created<T: Serialize>(data: T) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Created().json(SuccessResponse::created(data)))
+    }
+
+    /// 创建 204 No Content 响应
+    pub fn no_content() -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::NoContent().json(SuccessResponse::no_content()))
+    }
+
+    /// 创建 400 Bad Request 响应
+    pub fn bad_request<T>(message: String) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::BadRequest().json(ErrorResponse::error::<T>(
+            "BAD_REQUEST".to_string(),
+            message,
+        )))
+    }
+
+    /// 创建 401 Unauthorized 响应
+    pub fn unauthorized<T>() -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Unauthorized().json(ErrorResponse::unauthorized::<T>()))
+    }
+
+    /// 创建 403 Forbidden 响应
+    pub fn forbidden<T>() -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Forbidden().json(ErrorResponse::forbidden::<T>()))
+    }
+
+    /// 创建 404 Not Found 响应
+    pub fn not_found<T>(resource: &str) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::NotFound().json(ErrorResponse::not_found::<T>(resource)))
+    }
+
+    /// 创建 409 Conflict 响应
+    pub fn conflict<T>(message: String) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Conflict().json(ErrorResponse::conflict::<T>(message)))
+    }
+
+    /// 创建 422 Unprocessable Entity 响应
+    pub fn validation_error<T>(field: String, message: String) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::UnprocessableEntity().json(ErrorResponse::validation_error::<T>(field, message)))
+    }
+
+    /// 创建 429 Too Many Requests 响应
+    pub fn rate_limited<T>() -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::TooManyRequests().json(ErrorResponse::rate_limited::<T>()))
+    }
+
+    /// 创建 500 Internal Server Error 响应
+    pub fn internal_error<T>() -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<T>()))
+    }
+}
+
+/// 从 AiStudioError 转换为 HTTP 响应
+impl ResponseError for AiStudioError {
+    fn error_response(&self) -> HttpResponse {
+        match self {
+            AiStudioError::Validation(msg) => {
+                HttpResponse::BadRequest().json(ErrorResponse::error::<()>(
+                    "VALIDATION_ERROR".to_string(),
+                    msg.clone(),
+                ))
+            }
+            AiStudioError::NotFound(resource) => {
+                HttpResponse::NotFound().json(ErrorResponse::not_found::<()>(resource))
+            }
+            AiStudioError::Unauthorized(msg) => {
+                HttpResponse::Unauthorized().json(ErrorResponse::detailed_error::<()>(
+                    "UNAUTHORIZED".to_string(),
+                    msg.clone(),
+                    None,
+                    None,
+                ))
+            }
+            AiStudioError::Forbidden(msg) => {
+                HttpResponse::Forbidden().json(ErrorResponse::detailed_error::<()>(
+                    "FORBIDDEN".to_string(),
+                    msg.clone(),
+                    None,
+                    None,
+                ))
+            }
+            AiStudioError::Conflict(msg) => {
+                HttpResponse::Conflict().json(ErrorResponse::conflict::<()>(msg.clone()))
+            }
+            AiStudioError::QuotaExceeded(resource) => {
+                HttpResponse::TooManyRequests().json(ErrorResponse::quota_exceeded::<()>(resource))
+            }
+            AiStudioError::RateLimit(msg) => {
+                HttpResponse::TooManyRequests().json(ErrorResponse::detailed_error::<()>(
+                    "RATE_LIMITED".to_string(),
+                    msg.clone(),
+                    None,
+                    None,
+                ))
+            }
+            AiStudioError::Database(msg) => {
+                tracing::error!("Database error: {}", msg);
+                HttpResponse::InternalServerError().json(ErrorResponse::detailed_error::<()>(
+                    "DATABASE_ERROR".to_string(),
+                    "数据库操作失败".to_string(),
+                    None,
+                    None,
+                ))
+            }
+            AiStudioError::Internal(msg) => {
+                tracing::error!("Internal error: {}", msg);
+                HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<()>())
+            }
+            AiStudioError::External(msg) => {
+                tracing::error!("External service error: {}", msg);
+                HttpResponse::BadGateway().json(ErrorResponse::detailed_error::<()>(
+                    "EXTERNAL_SERVICE_ERROR".to_string(),
+                    "外部服务错误".to_string(),
+                    None,
+                    None,
+                ))
+            }
+            AiStudioError::Timeout(msg) => {
+                HttpResponse::RequestTimeout().json(ErrorResponse::detailed_error::<()>(
+                    "TIMEOUT".to_string(),
+                    msg.clone(),
+                    None,
+                    None,
+                ))
+            }
+        }
+    }
+
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        match self {
+            AiStudioError::Validation(_) => actix_web::http::StatusCode::BAD_REQUEST,
+            AiStudioError::NotFound(_) => actix_web::http::StatusCode::NOT_FOUND,
+            AiStudioError::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
+            AiStudioError::Forbidden(_) => actix_web::http::StatusCode::FORBIDDEN,
+            AiStudioError::Conflict(_) => actix_web::http::StatusCode::CONFLICT,
+            AiStudioError::QuotaExceeded(_) => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            AiStudioError::RateLimit(_) => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            AiStudioError::Database(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            AiStudioError::Internal(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            AiStudioError::External(_) => actix_web::http::StatusCode::BAD_GATEWAY,
+            AiStudioError::Timeout(_) => actix_web::http::StatusCode::REQUEST_TIMEOUT,
+        }
+    }
+}
+
+/// 生成请求 ID
+fn generate_request_id() -> String {
+    Uuid::new_v4().to_string()
+}
+
+/// API 响应扩展 trait
+pub trait ApiResponseExt<T> {
+    /// 转换为 HTTP 响应
+    fn into_http_response(self) -> ActixResult<HttpResponse>;
+}
+
+impl<T: Serialize> ApiResponseExt<T> for ApiResponse<T> {
+    fn into_http_response(self) -> ActixResult<HttpResponse> {
+        let status_code = if self.success {
+            actix_web::http::StatusCode::OK
+        } else {
+            match self.error.as_ref().map(|e| e.code.as_str()) {
+                Some("VALIDATION_ERROR") => actix_web::http::StatusCode::BAD_REQUEST,
+                Some("UNAUTHORIZED") => actix_web::http::StatusCode::UNAUTHORIZED,
+                Some("FORBIDDEN") => actix_web::http::StatusCode::FORBIDDEN,
+                Some("NOT_FOUND") => actix_web::http::StatusCode::NOT_FOUND,
+                Some("CONFLICT") => actix_web::http::StatusCode::CONFLICT,
+                Some("QUOTA_EXCEEDED") | Some("RATE_LIMITED") => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+                Some("INTERNAL_ERROR") => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        };
+
+        Ok(HttpResponse::build(status_code).json(self))
+    }
+}
