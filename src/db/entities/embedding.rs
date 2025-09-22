@@ -1,6 +1,7 @@
 // 向量嵌入实体定义
 
 use sea_orm::entity::prelude::*;
+use sea_orm::sea_query::Alias;
 use serde::{Deserialize, Serialize};
 
 /// 嵌入状态枚举
@@ -55,8 +56,8 @@ pub struct Model {
     pub status: EmbeddingStatus,
     
     /// 向量数据（使用 pgvector 扩展）
-    #[sea_orm(column_type = "Custom(\"vector\".to_owned())", nullable)]
-    pub vector: Option<String>, // 实际存储为 pgvector 类型，这里用 String 表示
+    #[sea_orm(column_type = "Text", nullable)]
+    pub vector: Option<String>, // TODO: switch to pgvector when integration is ready
     
     /// 向量维度
     pub dimension: i32,

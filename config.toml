@@ -1,0 +1,64 @@
+# Aionix AI Studio 配置文件示例
+# 复制此文件为 config.toml 并根据需要修改
+
+[server]
+host = "127.0.0.1"
+port = 8080
+workers = 4
+keep_alive = 75
+client_timeout = 5000
+client_shutdown = 5000
+
+[database]
+url = "postgresql://username:password@localhost:5432/aionix"
+max_connections = 10
+min_connections = 1
+connect_timeout = 30
+idle_timeout = 600
+max_lifetime = 1800
+
+[ai]
+model_endpoint = "http://localhost:11434"
+api_key = "your_api_key_here"
+max_tokens = 2048
+temperature = 0.7
+timeout = 30
+retry_attempts = 3
+
+[redis]
+url = "redis://localhost:6379"
+max_connections = 10
+connection_timeout = 5
+response_timeout = 5
+
+[security]
+jwt_secret = "your-super-secret-jwt-key-change-this-in-production"
+jwt_expiration = 3600
+bcrypt_cost = 12
+cors_origins = ["*"]
+rate_limit_requests = 100
+rate_limit_window = 60
+
+[storage]
+path = "./storage"
+max_file_size = 10485760  # 10MB
+allowed_extensions = ["pdf", "txt", "md", "doc", "docx"]
+
+[logging]
+level = "info"
+format = "json"
+file_enabled = false
+file_path = "./logs/aionix.log"
+max_file_size = 104857600  # 100MB
+max_files = 10
+
+[vector]
+dimension = 1536
+similarity_threshold = 0.8
+index_type = "hnsw"
+ef_construction = 200
+m = 16
+
+[environment]
+name = "development"
+debug = true

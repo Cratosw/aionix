@@ -273,7 +273,7 @@ fn parse_quota_type(quota_type_str: &str) -> Result<QuotaType, AiStudioError> {
         "storage" => Ok(QuotaType::Storage),
         "monthly_api_calls" | "monthly-api-calls" => Ok(QuotaType::MonthlyApiCalls),
         "daily_ai_queries" | "daily-ai-queries" => Ok(QuotaType::DailyAiQueries),
-        _ => Err(AiStudioError::validation(format!("无效的配额类型: {}", quota_type_str))),
+        _ => Err(AiStudioError::validation("quota_type", format!("无效的配额类型: {}", quota_type_str))),
     }
 }
 
@@ -286,7 +286,7 @@ pub fn configure_quota_routes(cfg: &mut web::ServiceConfig) {
             // 需要认证的路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::api_standard())
+                    .configure(MiddlewareConfig::api_standard())
                     .route("/stats", web::get().to(get_quota_stats))
                     .route("/{quota_type}/check", web::get().to(check_quota))
                     .route("/{quota_type}/trends", web::get().to(get_quota_trends))
@@ -294,7 +294,7 @@ pub fn configure_quota_routes(cfg: &mut web::ServiceConfig) {
             // 管理员专用路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::admin_only())
+                    .configure(MiddlewareConfig::admin_only())
                     .route("/update", web::post().to(update_quota))
                     .route("/reset", web::post().to(reset_quota))
             )

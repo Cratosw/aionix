@@ -367,7 +367,7 @@ pub fn configure_rate_limit_routes(cfg: &mut web::ServiceConfig) {
             // 需要认证的路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::api_standard())
+                    .configure(MiddlewareConfig::api_standard())
                     .route("/stats", web::get().to(get_rate_limit_stats))
                     .route("/check", web::post().to(check_rate_limit))
                     .route("/policies", web::get().to(get_rate_limit_policies))
@@ -375,7 +375,7 @@ pub fn configure_rate_limit_routes(cfg: &mut web::ServiceConfig) {
             // 管理员专用路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::admin_only())
+                    .configure(MiddlewareConfig::admin_only())
                     .route("/reset", web::post().to(reset_rate_limit))
             )
     );

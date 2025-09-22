@@ -323,14 +323,14 @@ pub fn configure_monitoring_routes(cfg: &mut web::ServiceConfig) {
             // 管理员专用路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::admin_only())
+                    .configure(MiddlewareConfig::admin_only())
                     .route("/health", web::get().to(get_system_health))
                     .route("/tenants/{tenant_id}/metrics", web::post().to(record_metric))
             )
             // 需要认证的路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::api_standard())
+                    .configure(MiddlewareConfig::api_standard())
                     .route("/tenants/{tenant_id}/usage", web::get().to(get_tenant_usage_stats))
                     .route("/tenants/{tenant_id}/metrics/{metric_type}/trends", web::get().to(get_metric_trends))
                     .route("/tenants/{tenant_id}/notifications", web::get().to(get_notifications))

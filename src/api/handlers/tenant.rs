@@ -455,7 +455,7 @@ pub fn configure_tenant_routes(cfg: &mut web::ServiceConfig) {
             // 管理员权限的路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::admin_only())
+                    .configure(MiddlewareConfig::admin_only())
                     .route("", web::post().to(create_tenant))
                     .route("", web::get().to(list_tenants))
                     .route("/stats", web::get().to(get_tenant_stats))
@@ -467,7 +467,7 @@ pub fn configure_tenant_routes(cfg: &mut web::ServiceConfig) {
             // 标准认证的路由
             .service(
                 web::scope("")
-                    .wrap(MiddlewareConfig::api_standard())
+                    .configure(MiddlewareConfig::api_standard())
                     .route("/by-slug/{slug}", web::get().to(get_tenant_by_slug))
                     .route("/{tenant_id}", web::get().to(get_tenant))
                     .route("/{tenant_id}/quota/{resource_type}", web::get().to(check_tenant_quota))

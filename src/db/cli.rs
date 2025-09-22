@@ -335,13 +335,13 @@ impl CliExecutor {
 /// 解析命令行参数
 pub fn parse_args(args: Vec<String>) -> Result<CliCommand, AiStudioError> {
     if args.len() < 2 {
-        return Err(AiStudioError::validation("请提供命令"));
+        return Err(AiStudioError::validation("args", "请提供命令"));
     }
 
     match args[1].as_str() {
         "migration" | "migrate" => {
             if args.len() < 3 {
-                return Err(AiStudioError::validation("请提供迁移子命令"));
+                return Err(AiStudioError::validation("migration", "请提供迁移子命令"));
             }
 
             let subcommand = match args[2].as_str() {
@@ -350,34 +350,34 @@ pub fn parse_args(args: Vec<String>) -> Result<CliCommand, AiStudioError> {
                 "migrate" | "up" => MigrationCommand::Migrate,
                 "rollback" | "down" => {
                     if args.len() < 4 {
-                        return Err(AiStudioError::validation("请提供要回滚的版本"));
+                        return Err(AiStudioError::validation("version", "请提供要回滚的版本"));
                     }
                     MigrationCommand::Rollback { version: args[3].clone() }
                 }
                 "reset" => MigrationCommand::Reset,
                 "validate" => MigrationCommand::Validate,
-                _ => return Err(AiStudioError::validation("未知的迁移子命令")),
+                _ => return Err(AiStudioError::validation("migration", "未知的迁移子命令")),
             };
 
             Ok(CliCommand::Migration(subcommand))
         }
         "seed" => {
             if args.len() < 3 {
-                return Err(AiStudioError::validation("请提供种子数据子命令"));
+                return Err(AiStudioError::validation("seed", "请提供种子数据子命令"));
             }
 
             let subcommand = match args[2].as_str() {
                 "init" => SeedCommand::Init,
                 "clean" => SeedCommand::Clean,
                 "reseed" => SeedCommand::Reseed,
-                _ => return Err(AiStudioError::validation("未知的种子数据子命令")),
+                _ => return Err(AiStudioError::validation("seed", "未知的种子数据子命令")),
             };
 
             Ok(CliCommand::Seed(subcommand))
         }
         "backup" => {
             if args.len() < 3 {
-                return Err(AiStudioError::validation("请提供备份子命令"));
+                return Err(AiStudioError::validation("backup", "请提供备份子命令"));
             }
 
             let subcommand = match args[2].as_str() {
@@ -413,10 +413,10 @@ pub fn parse_args(args: Vec<String>) -> Result<CliCommand, AiStudioError> {
                 }
                 "restore" => {
                     if args.len() < 4 {
-                        return Err(AiStudioError::validation("请提供备份 ID"));
+                        return Err(AiStudioError::validation("backup_id", "请提供备份 ID"));
                     }
                     let backup_id = Uuid::parse_str(&args[3])
-                        .map_err(|_| AiStudioError::validation("无效的备份 ID"))?;
+                        .map_err(|_| AiStudioError::validation("backup_id", "无效的备份 ID"))?;
                     
                     BackupCommand::Restore {
                         backup_id,
@@ -427,18 +427,18 @@ pub fn parse_args(args: Vec<String>) -> Result<CliCommand, AiStudioError> {
                 }
                 "delete" => {
                     if args.len() < 4 {
-                        return Err(AiStudioError::validation("请提供备份 ID"));
+                        return Err(AiStudioError::validation("backup_id", "请提供备份 ID"));
                     }
                     let backup_id = Uuid::parse_str(&args[3])
-                        .map_err(|_| AiStudioError::validation("无效的备份 ID"))?;
+                        .map_err(|_| AiStudioError::validation("backup_id", "无效的备份 ID"))?;
                     BackupCommand::Delete { backup_id }
                 }
                 "verify" => {
                     if args.len() < 4 {
-                        return Err(AiStudioError::validation("请提供备份 ID"));
+                        return Err(AiStudioError::validation("backup_id", "请提供备份 ID"));
                     }
                     let backup_id = Uuid::parse_str(&args[3])
-                        .map_err(|_| AiStudioError::validation("无效的备份 ID"))?;
+                        .map_err(|_| AiStudioError::validation("backup_id", "无效的备份 ID"))?;
                     BackupCommand::Verify { backup_id }
                 }
                 "cleanup" => {
@@ -449,12 +449,12 @@ pub fn parse_args(args: Vec<String>) -> Result<CliCommand, AiStudioError> {
                     };
                     BackupCommand::Cleanup { retention_days }
                 }
-                _ => return Err(AiStudioError::validation("未知的备份子命令")),
+                _ => return Err(AiStudioError::validation("backup", "未知的备份子命令")),
             };
 
             Ok(CliCommand::Backup(subcommand))
         }
-        _ => Err(AiStudioError::validation("未知的命令")),
+        _ => Err(AiStudioError::validation("args", "未知的命令")),
     }
 }
 

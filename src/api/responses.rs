@@ -296,7 +296,7 @@ impl HttpResponseBuilder {
     }
 
     /// 创建 400 Bad Request 响应
-    pub fn bad_request<T>(message: String) -> ActixResult<HttpResponse> {
+    pub fn bad_request<T: serde::Serialize>(message: String) -> ActixResult<HttpResponse> {
         Ok(HttpResponse::BadRequest().json(ErrorResponse::error::<T>(
             "BAD_REQUEST".to_string(),
             message,
@@ -304,37 +304,37 @@ impl HttpResponseBuilder {
     }
 
     /// 创建 401 Unauthorized 响应
-    pub fn unauthorized<T>() -> ActixResult<HttpResponse> {
+    pub fn unauthorized<T: serde::Serialize>() -> ActixResult<HttpResponse> {
         Ok(HttpResponse::Unauthorized().json(ErrorResponse::unauthorized::<T>()))
     }
 
     /// 创建 403 Forbidden 响应
-    pub fn forbidden<T>() -> ActixResult<HttpResponse> {
+    pub fn forbidden<T: serde::Serialize>() -> ActixResult<HttpResponse> {
         Ok(HttpResponse::Forbidden().json(ErrorResponse::forbidden::<T>()))
     }
 
     /// 创建 404 Not Found 响应
-    pub fn not_found<T>(resource: &str) -> ActixResult<HttpResponse> {
+    pub fn not_found<T: serde::Serialize>(resource: &str) -> ActixResult<HttpResponse> {
         Ok(HttpResponse::NotFound().json(ErrorResponse::not_found::<T>(resource)))
     }
 
     /// 创建 409 Conflict 响应
-    pub fn conflict<T>(message: String) -> ActixResult<HttpResponse> {
+    pub fn conflict<T: serde::Serialize>(message: String) -> ActixResult<HttpResponse> {
         Ok(HttpResponse::Conflict().json(ErrorResponse::conflict::<T>(message)))
     }
 
     /// 创建 422 Unprocessable Entity 响应
-    pub fn validation_error<T>(field: String, message: String) -> ActixResult<HttpResponse> {
+    pub fn validation_error<T: serde::Serialize>(field: String, message: String) -> ActixResult<HttpResponse> {
         Ok(HttpResponse::UnprocessableEntity().json(ErrorResponse::validation_error::<T>(field, message)))
     }
 
     /// 创建 429 Too Many Requests 响应
-    pub fn rate_limited<T>() -> ActixResult<HttpResponse> {
+    pub fn rate_limited<T: serde::Serialize>() -> ActixResult<HttpResponse> {
         Ok(HttpResponse::TooManyRequests().json(ErrorResponse::rate_limited::<T>()))
     }
 
     /// 创建 500 Internal Server Error 响应
-    pub fn internal_error<T>() -> ActixResult<HttpResponse> {
+    pub fn internal_error<T: serde::Serialize>() -> ActixResult<HttpResponse> {
         Ok(HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<T>()))
     }
 }
@@ -343,47 +343,38 @@ impl HttpResponseBuilder {
 impl ResponseError for AiStudioError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            AiStudioError::Validation(msg) => {
+            AiStudioError::Validation { field: _, message } => {
                 HttpResponse::BadRequest().json(ErrorResponse::error::<()>(
                     "VALIDATION_ERROR".to_string(),
-                    msg.clone(),
+                    message.clone(),
                 ))
             }
-            AiStudioError::NotFound(resource) => {
-                HttpResponse::NotFound().json(ErrorResponse::not_found::<()>(resource))
+            AiStudioError::NotFound { resource } => {
+                HttpResponse::NotFound().json(ErrorResponse::not_found::<()>(&resource))
             }
-            AiStudioError::Unauthorized(msg) => {
+            AiStudioError::Authentication { message } => {
                 HttpResponse::Unauthorized().json(ErrorResponse::detailed_error::<()>(
                     "UNAUTHORIZED".to_string(),
-                    msg.clone(),
+                    message.clone(),
                     None,
                     None,
                 ))
             }
-            AiStudioError::Forbidden(msg) => {
+            AiStudioError::Authorization { message } => {
                 HttpResponse::Forbidden().json(ErrorResponse::detailed_error::<()>(
                     "FORBIDDEN".to_string(),
-                    msg.clone(),
+                    message.clone(),
                     None,
                     None,
                 ))
             }
-            AiStudioError::Conflict(msg) => {
-                HttpResponse::Conflict().json(ErrorResponse::conflict::<()>(msg.clone()))
+            AiStudioError::Conflict { message } => {
+                HttpResponse::Conflict().json(ErrorResponse::conflict::<()>(message.clone()))
             }
-            AiStudioError::QuotaExceeded(resource) => {
-                HttpResponse::TooManyRequests().json(ErrorResponse::quota_exceeded::<()>(resource))
+            AiStudioError::RateLimit { .. } => {
+                HttpResponse::TooManyRequests().json(ErrorResponse::rate_limited::<()>())
             }
-            AiStudioError::RateLimit(msg) => {
-                HttpResponse::TooManyRequests().json(ErrorResponse::detailed_error::<()>(
-                    "RATE_LIMITED".to_string(),
-                    msg.clone(),
-                    None,
-                    None,
-                ))
-            }
-            AiStudioError::Database(msg) => {
-                tracing::error!("Database error: {}", msg);
+            AiStudioError::Database { .. } => {
                 HttpResponse::InternalServerError().json(ErrorResponse::detailed_error::<()>(
                     "DATABASE_ERROR".to_string(),
                     "数据库操作失败".to_string(),
@@ -391,12 +382,10 @@ impl ResponseError for AiStudioError {
                     None,
                 ))
             }
-            AiStudioError::Internal(msg) => {
-                tracing::error!("Internal error: {}", msg);
+            AiStudioError::Internal { .. } => {
                 HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<()>())
             }
-            AiStudioError::External(msg) => {
-                tracing::error!("External service error: {}", msg);
+            AiStudioError::ExternalService { .. } => {
                 HttpResponse::BadGateway().json(ErrorResponse::detailed_error::<()>(
                     "EXTERNAL_SERVICE_ERROR".to_string(),
                     "外部服务错误".to_string(),
@@ -404,30 +393,31 @@ impl ResponseError for AiStudioError {
                     None,
                 ))
             }
-            AiStudioError::Timeout(msg) => {
+            AiStudioError::Timeout { operation } => {
                 HttpResponse::RequestTimeout().json(ErrorResponse::detailed_error::<()>(
                     "TIMEOUT".to_string(),
-                    msg.clone(),
+                    operation.clone(),
                     None,
                     None,
                 ))
             }
+            _ => HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<()>()),
         }
     }
 
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
-            AiStudioError::Validation(_) => actix_web::http::StatusCode::BAD_REQUEST,
-            AiStudioError::NotFound(_) => actix_web::http::StatusCode::NOT_FOUND,
-            AiStudioError::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
-            AiStudioError::Forbidden(_) => actix_web::http::StatusCode::FORBIDDEN,
-            AiStudioError::Conflict(_) => actix_web::http::StatusCode::CONFLICT,
-            AiStudioError::QuotaExceeded(_) => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
-            AiStudioError::RateLimit(_) => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
-            AiStudioError::Database(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            AiStudioError::Internal(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            AiStudioError::External(_) => actix_web::http::StatusCode::BAD_GATEWAY,
-            AiStudioError::Timeout(_) => actix_web::http::StatusCode::REQUEST_TIMEOUT,
+            AiStudioError::Validation { .. } => actix_web::http::StatusCode::BAD_REQUEST,
+            AiStudioError::NotFound { .. } => actix_web::http::StatusCode::NOT_FOUND,
+            AiStudioError::Authentication { .. } => actix_web::http::StatusCode::UNAUTHORIZED,
+            AiStudioError::Authorization { .. } => actix_web::http::StatusCode::FORBIDDEN,
+            AiStudioError::Conflict { .. } => actix_web::http::StatusCode::CONFLICT,
+            AiStudioError::RateLimit { .. } => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            AiStudioError::Database { .. } => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            AiStudioError::Internal { .. } => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            AiStudioError::ExternalService { .. } => actix_web::http::StatusCode::BAD_GATEWAY,
+            AiStudioError::Timeout { .. } => actix_web::http::StatusCode::REQUEST_TIMEOUT,
+            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
