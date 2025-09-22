@@ -3,9 +3,15 @@
 
 pub mod auth;
 pub mod tenant;
+pub mod access_control;
+pub mod quota;
+pub mod rate_limit;
 
 pub use auth::*;
 pub use tenant::*;
+pub use access_control::*;
+pub use quota::*;
+pub use rate_limit::*;
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
@@ -498,4 +504,107 @@ pub fn configure_api_middleware() -> Vec<Box<dyn Fn(&mut actix_web::dev::Service
             cfg.wrap(ResponseTimeMiddleware);
         }),
     ]
+}
+
+/// 中间件配置器
+pub struct MiddlewareConfig;
+
+impl MiddlewareConfig {
+    /// 配置标准 API 中间件栈（需要认证和租户）
+    pub fn api_standard() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        |cfg| {
+            cfg.wrap(AccessControlMiddleware::api_standard());
+        }
+    }
+
+    /// 配置管理员 API 中间件栈
+    pub fn admin_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        |cfg| {
+            cfg.wrap(AccessControlMiddleware::admin_only());
+        }
+    }
+
+    /// 配置公开 API 中间件栈（不需要认证）
+    pub fn public() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        |cfg| {
+            cfg.wrap(AccessControlMiddleware::public());
+        }
+    }
+
+    /// 配置带权限要求的 API 中间件栈
+    pub fn with_permissions(permissions: Vec<String>) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        move |cfg| {
+            cfg.wrap(AccessControlMiddleware::with_permissions(permissions.clone()));
+        }
+    }
+
+    /// 配置带角色要求的 API 中间件栈
+    pub fn with_roles(roles: Vec<String>) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        move |cfg| {
+            cfg.wrap(AccessControlMiddleware::with_roles(roles.clone()));
+        }
+    }
+
+    /// 配置 JWT 认证中间件
+    pub fn jwt_auth(secret_key: String) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        move |cfg| {
+            cfg.wrap(JwtAuthMiddleware::new(secret_key.clone()));
+        }
+    }
+
+    /// 配置 API 密钥认证中间件
+    pub fn api_key_auth() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        |cfg| {
+            cfg.wrap(ApiKeyAuthMiddleware::new());
+        }
+    }
+
+    /// 配置租户识别中间件
+    pub fn tenant_identification() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+        |cfg| {
+            cfg.wrap(TenantIdentificationMiddleware::default());
+            cfg.wrap(TenantIsolationMiddleware);
+        }
+    }
+
+    /// 配置完整的中间件栈（基础 + 访问控制 + 配额 + 限流）
+    pub fn full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+        let mut middleware = configure_api_middleware();
+        middleware.push(Box::new(Self::api_standard()));
+        middleware.push(Box::new(QuotaMiddlewareConfig::api_calls()));
+        middleware.push(Box::new(RateLimitMiddlewareConfig::lightweight()));
+        middleware
+    }
+
+    /// 配置管理员完整中间件栈
+    pub fn admin_full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+        let mut middleware = configure_api_middleware();
+        middleware.push(Box::new(Self::admin_only()));
+        middleware
+    }
+
+    /// 配置公开完整中间件栈
+    pub fn public_full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+        let mut middleware = configure_api_middleware();
+        middleware.push(Box::new(Self::public()));
+        middleware
+    }
+
+    /// 配置 AI 查询中间件栈
+    pub fn ai_query_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+        let mut middleware = configure_api_middleware();
+        middleware.push(Box::new(Self::api_standard()));
+        middleware.push(Box::new(QuotaMiddlewareConfig::ai_queries()));
+        middleware.push(Box::new(RateLimitMiddlewareConfig::api_key_only()));
+        middleware
+    }
+
+    /// 配置文件上传中间件栈
+    pub fn file_upload_stack(file_size_bytes: u64) -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+        let mut middleware = configure_api_middleware();
+        middleware.push(Box::new(Self::api_standard()));
+        middleware.push(Box::new(QuotaMiddlewareConfig::storage(file_size_bytes)));
+        middleware.push(Box::new(RateLimitMiddlewareConfig::lightweight()));
+        middleware
+    }
 }

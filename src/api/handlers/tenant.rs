@@ -448,17 +448,29 @@ pub struct QuotaCheckResponse {
 
 /// 配置租户路由
 pub fn configure_tenant_routes(cfg: &mut web::ServiceConfig) {
+    use crate::api::middleware::MiddlewareConfig;
+    
     cfg.service(
         web::scope("/tenants")
-            .route("", web::post().to(create_tenant))
-            .route("", web::get().to(list_tenants))
-            .route("/stats", web::get().to(get_tenant_stats))
-            .route("/by-slug/{slug}", web::get().to(get_tenant_by_slug))
-            .route("/{tenant_id}", web::get().to(get_tenant))
-            .route("/{tenant_id}", web::put().to(update_tenant))
-            .route("/{tenant_id}", web::delete().to(delete_tenant))
-            .route("/{tenant_id}/suspend", web::post().to(suspend_tenant))
-            .route("/{tenant_id}/activate", web::post().to(activate_tenant))
-            .route("/{tenant_id}/quota/{resource_type}", web::get().to(check_tenant_quota))
+            // 管理员权限的路由
+            .service(
+                web::scope("")
+                    .wrap(MiddlewareConfig::admin_only())
+                    .route("", web::post().to(create_tenant))
+                    .route("", web::get().to(list_tenants))
+                    .route("/stats", web::get().to(get_tenant_stats))
+                    .route("/{tenant_id}", web::put().to(update_tenant))
+                    .route("/{tenant_id}", web::delete().to(delete_tenant))
+                    .route("/{tenant_id}/suspend", web::post().to(suspend_tenant))
+                    .route("/{tenant_id}/activate", web::post().to(activate_tenant))
+            )
+            // 标准认证的路由
+            .service(
+                web::scope("")
+                    .wrap(MiddlewareConfig::api_standard())
+                    .route("/by-slug/{slug}", web::get().to(get_tenant_by_slug))
+                    .route("/{tenant_id}", web::get().to(get_tenant))
+                    .route("/{tenant_id}/quota/{resource_type}", web::get().to(check_tenant_quota))
+            )
     );
 }

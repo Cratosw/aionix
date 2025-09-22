@@ -311,7 +311,7 @@ impl AuthService {
 
         // 验证密码确认
         if request.password != request.password_confirm {
-            return Err(AiStudioError::validation("密码确认不匹配".to_string()));
+            return Err(AiStudioError::validation("password", "密码确认不匹配"));
         }
 
         // 验证密码强度
@@ -471,7 +471,7 @@ impl AuthService {
 
     /// 检查是否为管理员用户
     fn is_admin_user(&self, user: &user::Model) -> bool {
-        user.role == "admin"
+        user.role == user::UserRole::Admin
     }
 
     /// 生成刷新令牌
@@ -592,19 +592,19 @@ impl AuthService {
     /// 验证密码强度
     fn validate_password_strength(&self, password: &str) -> Result<(), AiStudioError> {
         if password.len() < 8 {
-            return Err(AiStudioError::validation("密码长度至少为 8 个字符".to_string()));
+            return Err(AiStudioError::validation("password", "密码长度至少为 8 个字符"));
         }
 
         if !password.chars().any(|c| c.is_ascii_lowercase()) {
-            return Err(AiStudioError::validation("密码必须包含小写字母".to_string()));
+            return Err(AiStudioError::validation("password", "密码必须包含小写字母"));
         }
 
         if !password.chars().any(|c| c.is_ascii_uppercase()) {
-            return Err(AiStudioError::validation("密码必须包含大写字母".to_string()));
+            return Err(AiStudioError::validation("password", "密码必须包含大写字母"));
         }
 
         if !password.chars().any(|c| c.is_ascii_digit()) {
-            return Err(AiStudioError::validation("密码必须包含数字".to_string()));
+            return Err(AiStudioError::validation("password", "密码必须包含数字"));
         }
 
         Ok(())

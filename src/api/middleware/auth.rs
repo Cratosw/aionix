@@ -264,8 +264,15 @@ where
                 }
             };
 
+            // 获取客户端 IP
+            let client_ip = req
+                .connection_info()
+                .remote_addr()
+                .unwrap_or("unknown")
+                .to_string();
+
             // 验证 API 密钥
-            match verify_api_key(api_key).await {
+            match verify_api_key_with_ip(api_key, &client_ip).await {
                 Ok(api_key_info) => {
                     // 检查权限
                     if !required_permissions.is_empty() {
@@ -275,9 +282,26 @@ where
 
                         if !has_permission {
                             let response = HttpResponse::Forbidden()
-                                .json(ErrorResponse::forbidden::<()>());
+                                .json(ErrorResponse::detailed_error::<()>(
+                                    "INSUFFICIENT_PERMISSIONS".to_string(),
+                                    format!("API 密钥缺少必要权限: {:?}", required_permissions),
+                                    None,
+                                    None,
+                                ));
                             return Ok(req.into_response(response));
                         }
+                    }
+
+                    // 检查速率限制
+                    if let Err(e) = check_api_key_rate_limit(&api_key_info).await {
+                        let response = HttpResponse::TooManyRequests()
+                            .json(ErrorResponse::detailed_error::<()>(
+                                "RATE_LIMIT_EXCEEDED".to_string(),
+                                e.to_string(),
+                                None,
+                                None,
+                            ));
+                        return Ok(req.into_response(response));
                     }
 
                     // 将 API 密钥信息存储在请求扩展中
@@ -402,24 +426,123 @@ async fn verify_jwt_token(token: &str, secret_key: &str) -> Result<Authenticated
     })
 }
 
+/// 验证 API 密钥（带 IP 检查）
+#[instrument(skip(api_key))]
+async fn verify_api_key_with_ip(api_key: &str, client_ip: &str) -> Result<ApiKeyInfo, AiStudioError> {
+    let api_key_info = verify_api_key(api_key).await?;
+    
+    // 检查 IP 白名单
+    let db_manager = DatabaseManager::get()?;
+    let db = db_manager.get_connection();
+    
+    use crate::db::entities::{api_key, prelude::*};
+    let key_model = ApiKey::find_by_id(api_key_info.key_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AiStudioError::not_found("API 密钥"))?;
+    
+    if !key_model.is_ip_allowed(client_ip)
+        .map_err(|e| AiStudioError::internal(format!("检查 IP 白名单失败: {}", e)))? {
+        return Err(AiStudioError::forbidden(format!("IP 地址 {} 不在白名单中", client_ip)));
+    }
+    
+    Ok(api_key_info)
+}
+
 /// 验证 API 密钥
 #[instrument(skip(api_key))]
 async fn verify_api_key(api_key: &str) -> Result<ApiKeyInfo, AiStudioError> {
-    // 这里应该从数据库查询 API 密钥信息
-    // 为了简化，这里返回一个模拟的 API 密钥信息
+    use crate::db::entities::{api_key, prelude::*};
+    use sea_orm::{ColumnTrait, QueryFilter};
     
-    if api_key.starts_with("ak_") && api_key.len() >= 32 {
-        Ok(ApiKeyInfo {
-            key_id: Uuid::new_v4(),
-            tenant_id: Uuid::new_v4(),
-            name: "Default API Key".to_string(),
-            permissions: vec!["api_access".to_string()],
-            expires_at: None,
-            last_used_at: Some(Utc::now()),
-        })
-    } else {
-        Err(AiStudioError::unauthorized("无效的 API 密钥格式".to_string()))
+    // 检查 API 密钥格式
+    if !api_key.starts_with("ak_") || api_key.len() < 32 {
+        return Err(AiStudioError::unauthorized("无效的 API 密钥格式".to_string()));
     }
+    
+    let db_manager = DatabaseManager::get()?;
+    let db = db_manager.get_connection();
+    
+    // 查找所有活跃的 API 密钥
+    let api_keys = ApiKey::find()
+        .filter(api_key::Column::Status.eq(api_key::ApiKeyStatus::Active))
+        .all(db)
+        .await?;
+    
+    // 验证 API 密钥
+    for key_model in api_keys {
+        if let Ok(true) = crate::db::entities::api_key::ApiKeyUtils::verify_key(api_key, &key_model.key_hash) {
+            // 检查是否过期
+            if key_model.is_expired() {
+                return Err(AiStudioError::unauthorized("API 密钥已过期".to_string()));
+            }
+            
+            // 获取权限信息
+            let permissions = key_model.get_permissions()
+                .map_err(|e| AiStudioError::internal(format!("解析 API 密钥权限失败: {}", e)))?;
+            
+            // 更新最后使用时间（异步执行，不阻塞当前请求）
+            let key_id = key_model.id;
+            tokio::spawn(async move {
+                if let Ok(db_manager) = DatabaseManager::get() {
+                    let db = db_manager.get_connection();
+                    let mut active_model: api_key::ActiveModel = key_model.into();
+                    active_model.last_used_at = sea_orm::Set(Some(Utc::now().into()));
+                    active_model.usage_count = sea_orm::Set(active_model.usage_count.unwrap() + 1);
+                    let _ = active_model.update(db).await;
+                }
+            });
+            
+            return Ok(ApiKeyInfo {
+                key_id: key_model.id,
+                tenant_id: key_model.tenant_id,
+                name: key_model.name,
+                permissions: permissions.scopes,
+                expires_at: key_model.expires_at.map(|dt| dt.into()),
+                last_used_at: key_model.last_used_at.map(|dt| dt.into()),
+            });
+        }
+    }
+    
+    Err(AiStudioError::unauthorized("无效的 API 密钥".to_string()))
+}
+
+/// 检查 API 密钥速率限制
+#[instrument(skip(api_key_info))]
+async fn check_api_key_rate_limit(api_key_info: &ApiKeyInfo) -> Result<(), AiStudioError> {
+    use crate::db::entities::{api_key, prelude::*};
+    
+    let db_manager = DatabaseManager::get()?;
+    let db = db_manager.get_connection();
+    
+    let key_model = ApiKey::find_by_id(api_key_info.key_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AiStudioError::not_found("API 密钥"))?;
+    
+    let permissions = key_model.get_permissions()
+        .map_err(|e| AiStudioError::internal(format!("解析 API 密钥权限失败: {}", e)))?;
+    
+    if let Some(rate_limit) = permissions.rate_limit {
+        // 这里应该实现基于 Redis 的速率限制检查
+        // 为了简化，这里只做基本的检查
+        
+        // 检查每日限制（基于使用次数的简单检查）
+        let today_start = chrono::Utc::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+        let today_start_utc = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(today_start, chrono::Utc);
+        
+        if let Some(last_used) = key_model.last_used_at {
+            let last_used_utc: chrono::DateTime<chrono::Utc> = last_used.into();
+            if last_used_utc >= today_start_utc {
+                // 简单的每日限制检查（实际应该用 Redis 计数器）
+                if key_model.usage_count > rate_limit.requests_per_day as i64 {
+                    return Err(AiStudioError::too_many_requests("API 密钥每日请求限制已达上限".to_string()));
+                }
+            }
+        }
+    }
+    
+    Ok(())
 }
 
 /// 验证用户状态

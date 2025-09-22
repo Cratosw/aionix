@@ -4,10 +4,11 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::OpenApi;
 
-use crate::api::handlers::{health, version, tenant};
+use crate::api::handlers::{health, version, tenant, quota, rate_limit, monitoring};
 use crate::api::middleware::{
     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
     SecurityHeadersMiddleware, ResponseTimeMiddleware, ContentTypeMiddleware,
+    MiddlewareConfig,
 };
 use crate::api::responses::HttpResponseBuilder;
 
@@ -145,6 +146,12 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(version::configure_version_routes)
                     // 租户管理路由
                     .configure(tenant::configure_tenant_routes)
+                    // 配额管理路由
+                    .configure(quota::configure_quota_routes)
+                    // 限流管理路由
+                    .configure(rate_limit::configure_rate_limit_routes)
+                    // 监控管理路由
+                    .configure(monitoring::configure_monitoring_routes)
                     // OpenAPI JSON 端点
                     .route("/openapi.json", web::get().to(get_openapi_spec))
                     // 未来的路由将在这里添加：

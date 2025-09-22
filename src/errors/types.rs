@@ -306,6 +306,38 @@ impl AiStudioError {
             operation: operation.into(),
         }
     }
+
+    /// 创建未授权错误
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self::Authentication {
+            message: message.into(),
+        }
+    }
+
+    /// 创建禁止访问错误
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::Authorization {
+            message: message.into(),
+        }
+    }
+
+    /// 创建配额超限错误
+    pub fn quota_exceeded(message: impl Into<String>) -> Self {
+        Self::RateLimit { retry_after: None }
+    }
+
+    /// 创建请求过多错误
+    pub fn too_many_requests(message: impl Into<String>) -> Self {
+        Self::RateLimit { retry_after: Some(60) }
+    }
+
+    /// 创建简单验证错误
+    pub fn validation_simple(message: impl Into<String>) -> Self {
+        Self::Validation {
+            field: "general".to_string(),
+            message: message.into(),
+        }
+    }
 }
 
 /// 实现 ResponseError trait 以便与 Actix Web 集成

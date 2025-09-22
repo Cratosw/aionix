@@ -429,25 +429,26 @@ impl TenantService {
     /// 验证标识符格式
     fn validate_slug_format(&self, slug: &str) -> Result<(), AiStudioError> {
         if slug.is_empty() {
-            return Err(AiStudioError::validation("租户标识符不能为空".to_string()));
+            return Err(AiStudioError::validation("slug", "租户标识符不能为空"));
         }
 
         if slug.len() > 100 {
-            return Err(AiStudioError::validation("租户标识符长度不能超过100个字符".to_string()));
+            return Err(AiStudioError::validation("slug", "租户标识符长度不能超过100个字符"));
         }
 
         // 检查格式：只允许小写字母、数字和连字符，不能以连字符开头或结尾
         let regex = regex::Regex::new(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$").unwrap();
         if !regex.is_match(slug) {
             return Err(AiStudioError::validation(
-                "租户标识符只能包含小写字母、数字和连字符，且不能以连字符开头或结尾".to_string()
+                "slug", 
+                "租户标识符只能包含小写字母、数字和连字符，且不能以连字符开头或结尾"
             ));
         }
 
         // 检查保留字
         let reserved_slugs = vec!["api", "www", "admin", "root", "system", "public", "private"];
         if reserved_slugs.contains(&slug) {
-            return Err(AiStudioError::validation("该租户标识符为保留字，请选择其他标识符".to_string()));
+            return Err(AiStudioError::validation("slug", "该租户标识符为保留字，请选择其他标识符"));
         }
 
         Ok(())

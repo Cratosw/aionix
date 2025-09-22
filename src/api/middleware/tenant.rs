@@ -219,6 +219,19 @@ where
         Box::pin(async move {
             // 验证租户数据隔离
             if let Some(tenant_info) = req.extensions().get::<TenantInfo>() {
+                // 检查租户配额限制
+                if let Err(e) = check_tenant_quota_limits(tenant_info, &req).await {
+                    let response = HttpResponse::TooManyRequests()
+                        .json(ErrorResponse::detailed_error::<()>(
+                            "QUOTA_EXCEEDED".to_string(),
+                            e.to_string(),
+                            None,
+                            None,
+                        ));
+                    return Ok(req.into_response(response));
+                }
+
+                // 验证用户租户归属
                 if let Some(auth_user) = req.extensions().get::<crate::api::middleware::auth::AuthenticatedUser>() {
                     // 检查用户是否属于当前租户
                     if !auth_user.is_admin && auth_user.tenant_id != tenant_info.id {
@@ -226,6 +239,20 @@ where
                             .json(ErrorResponse::detailed_error::<()>(
                                 "TENANT_MISMATCH".to_string(),
                                 "用户不属于当前租户".to_string(),
+                                None,
+                                None,
+                            ));
+                        return Ok(req.into_response(response));
+                    }
+                }
+
+                // 验证 API 密钥租户归属
+                if let Some(api_key_info) = req.extensions().get::<crate::api::middleware::auth::ApiKeyInfo>() {
+                    if api_key_info.tenant_id != tenant_info.id {
+                        let response = HttpResponse::Forbidden()
+                            .json(ErrorResponse::detailed_error::<()>(
+                                "API_KEY_TENANT_MISMATCH".to_string(),
+                                "API 密钥不属于当前租户".to_string(),
                                 None,
                                 None,
                             ));
@@ -426,6 +453,46 @@ fn extract_subdomain(host: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+/// 检查租户配额限制
+#[instrument(skip(tenant_info, req))]
+async fn check_tenant_quota_limits(tenant_info: &TenantInfo, req: &ServiceRequest) -> Result<(), AiStudioError> {
+    let db_manager = DatabaseManager::get()?;
+    let db = db_manager.get_connection();
+    
+    let tenant = Tenant::find_by_id(tenant_info.id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AiStudioError::not_found("租户"))?;
+    
+    // 检查 API 调用配额
+    let path = req.path();
+    if path.starts_with("/api/") {
+        if tenant.is_quota_exceeded("monthly_api_calls")
+            .map_err(|e| AiStudioError::internal(format!("检查配额失败: {}", e)))? {
+            return Err(AiStudioError::quota_exceeded("月度 API 调用配额已用完".to_string()));
+        }
+    }
+    
+    // 检查 AI 查询配额
+    if path.contains("/ai/") || path.contains("/chat/") || path.contains("/qa/") {
+        if tenant.is_quota_exceeded("daily_ai_queries")
+            .map_err(|e| AiStudioError::internal(format!("检查配额失败: {}", e)))? {
+            return Err(AiStudioError::quota_exceeded("每日 AI 查询配额已用完".to_string()));
+        }
+    }
+    
+    // 检查存储配额（对于文件上传请求）
+    if matches!(req.method(), &actix_web::http::Method::POST | &actix_web::http::Method::PUT) 
+        && (path.contains("/upload") || path.contains("/documents")) {
+        if tenant.is_quota_exceeded("storage")
+            .map_err(|e| AiStudioError::internal(format!("检查配额失败: {}", e)))? {
+            return Err(AiStudioError::quota_exceeded("存储配额已用完".to_string()));
+        }
+    }
+    
+    Ok(())
 }
 
 /// 租户中间件配置辅助函数
