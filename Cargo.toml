@@ -7,6 +7,10 @@ description = "企业级 AI Studio - 基于 Rust 的多租户 AI 问答系统"
 license = "MIT"
 repository = "https://github.com/aionix/aionix"
 
+[[bin]]
+name = "aionix-db"
+path = "src/bin/aionix-db.rs"
+
 [workspace]
 members = ["packages/common"]
 
@@ -33,12 +37,28 @@ dotenvy = "0.15"
 config = "0.13"
 
 # 数据库和 ORM
-sea-orm = { version = "^0.12.0", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json"] }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+sea-orm = { version = "^0.12.0", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+    "with-uuid",
+    "with-chrono",
+    "with-json",
+] }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+] }
 pgvector = { version = "0.3", optional = true }
 
 # Redis 客户端
-redis = { version = "0.24", features = ["tokio-comp", "connection-manager"], optional = true }
+redis = { version = "0.24", features = [
+    "tokio-comp",
+    "connection-manager",
+], optional = true }
 
 # AI 框架 (Rig)
 rig-core = { version = "0.1", optional = true }
@@ -74,6 +94,10 @@ async-trait = "0.1"
 once_cell = "1.0"
 lazy_static = "1.4"
 url = "2.0"
+
+# 备份和迁移
+sha2 = "0.10"
+md5 = "0.7"
 
 # 本地包
 aionix-common = { path = "./packages/common" }

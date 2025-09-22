@@ -6,6 +6,7 @@ use sea_orm::{DatabaseConnection, Statement, ConnectionTrait};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{info, warn, error, instrument};
+use sha2::{Sha256, Digest};
 
 pub mod migrations;
 pub mod seed_data;
