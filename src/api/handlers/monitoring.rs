@@ -310,7 +310,7 @@ fn parse_metric_type(metric_type_str: &str) -> Result<MetricType, AiStudioError>
         "error_rate" | "error-rate" => Ok(MetricType::ErrorRate),
         "response_time" | "response-time" => Ok(MetricType::ResponseTime),
         "concurrent_connections" | "concurrent-connections" => Ok(MetricType::ConcurrentConnections),
-        _ => Err(AiStudioError::validation(format!("无效的指标类型: {}", metric_type_str))),
+        _ => Err(AiStudioError::validation("metric_type", format!("无效的指标类型: {}", metric_type_str))),
     }
 }
 

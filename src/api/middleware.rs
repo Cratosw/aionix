@@ -16,6 +16,7 @@ pub use rate_limit::*;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse,
+    body::BoxBody,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use std::future::{ready as std_ready, Ready as StdReady};
@@ -423,7 +424,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = ContentTypeMiddlewareService<S>;
     type InitError = ();
@@ -446,9 +447,9 @@ impl<S, B> Service<ServiceRequest> for ContentTypeMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -475,13 +476,13 @@ where
                     ));
                 
                 return Box::pin(async move {
-                    Ok(req.into_response(response))
+                    Ok(req.into_response(response.map_into_boxed_body()))
                 });
             }
         }
 
         let fut = self.service.call(req);
-        Box::pin(async move { fut.await })
+        Box::pin(async move { Ok(fut.await?.map_into_boxed_body()) })
     }
 }
 

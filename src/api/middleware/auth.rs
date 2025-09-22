@@ -4,6 +4,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse, Result as ActixResult,
+    body::BoxBody,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
@@ -93,7 +94,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = JwtAuthMiddlewareService<S>;
     type InitError = ();
@@ -118,9 +119,9 @@ impl<S, B> Service<ServiceRequest> for JwtAuthMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -179,7 +180,8 @@ where
             }
 
             let fut = self.service.call(req);
-            fut.await
+            let res = fut.await?.map_into_boxed_body();
+            Ok(res)
         })
     }
 }
@@ -209,7 +211,7 @@ where
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Transform = ApiKeyAuthMiddlewareService<S>;
     type InitError = ();
@@ -232,9 +234,9 @@ impl<S, B> Service<ServiceRequest> for ApiKeyAuthMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static,
+    B: 'static + actix_web::body::MessageBody,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -321,7 +323,8 @@ where
             }
 
             let fut = self.service.call(req);
-            fut.await
+            let res = fut.await?.map_into_boxed_body();
+            Ok(res)
         })
     }
 }
