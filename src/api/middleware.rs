@@ -1,6 +1,12 @@
 // API 中间件
 // 定义 API 相关的中间件，包括请求日志、CORS、限流等
 
+pub mod auth;
+pub mod tenant;
+
+pub use auth::*;
+pub use tenant::*;
+
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse,
