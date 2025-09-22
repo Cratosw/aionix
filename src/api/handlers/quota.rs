@@ -1,7 +1,7 @@
 // 配额管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
 use crate::api::extractors::{AdminExtractor, PaginationExtractor};
@@ -16,24 +16,24 @@ use crate::errors::AiStudioError;
 
 /// 配额管理 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(
-        get_quota_stats,
-        check_quota,
-        update_quota,
-        reset_quota,
-        get_quota_trends
-    ),
-    components(schemas(
-        crate::services::quota::QuotaType,
-        crate::services::quota::QuotaUsage,
-        crate::services::quota::QuotaCheckResult,
-        crate::services::quota::QuotaUpdateRequest,
-        crate::services::quota::QuotaStatsResponse,
-        crate::services::quota::QuotaHealth,
-    ))
-)]
-pub struct QuotaApiDoc;
+// #[openapi(
+//     paths(
+//         get_quota_stats,
+//         check_quota,
+//         update_quota,
+//         reset_quota,
+//         get_quota_trends
+//     ),
+//     components(schemas(
+//         crate::services::quota::QuotaType,
+//         crate::services::quota::QuotaUsage,
+//         crate::services::quota::QuotaCheckResult,
+//         crate::services::quota::QuotaUpdateRequest,
+//         crate::services::quota::QuotaStatsResponse,
+//         crate::services::quota::QuotaHealth,
+//     ))
+// )]
+// pub struct QuotaApiDoc;
 
 /// 获取租户配额统计
 #[utoipa::path(

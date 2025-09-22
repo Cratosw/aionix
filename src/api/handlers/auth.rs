@@ -1,7 +1,7 @@
 // 认证 API 处理器
 
 use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 
 use crate::api::extractors::{TenantExtractor, OptionalAuthExtractor, RequestIdExtractor};
 use crate::api::responses::HttpResponseBuilder;
@@ -14,30 +14,30 @@ use crate::errors::AiStudioError;
 
 /// 认证 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(
-        login,
-        refresh_token,
-        register,
-        logout,
-        request_password_reset,
-        confirm_password_reset,
-        get_current_user,
-    ),
-    components(schemas(
-        LoginRequest,
-        LoginResponse,
-        RefreshTokenRequest,
-        RefreshTokenResponse,
-        RegisterRequest,
-        RegisterResponse,
-        PasswordResetRequest,
-        PasswordResetConfirmRequest,
-        crate::services::auth::UserInfo,
-        crate::services::auth::TenantInfo,
-    ))
-)]
-pub struct AuthApiDoc;
+// #[openapi(
+//     paths(
+//         login,
+//         refresh_token,
+//         register,
+//         logout,
+//         request_password_reset,
+//         confirm_password_reset,
+//         get_current_user,
+//     ),
+//     components(schemas(
+//         LoginRequest,
+//         LoginResponse,
+//         RefreshTokenRequest,
+//         RefreshTokenResponse,
+//         RegisterRequest,
+//         RegisterResponse,
+//         PasswordResetRequest,
+//         PasswordResetConfirmRequest,
+//         crate::services::auth::UserInfo,
+//         crate::services::auth::TenantInfo,
+//     ))
+// )]
+// pub struct AuthApiDoc;
 
 /// 用户登录
 #[utoipa::path(

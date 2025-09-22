@@ -1,7 +1,7 @@
 // 租户管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
 use crate::api::extractors::{AdminExtractor, PaginationExtractor, SearchExtractor};
@@ -16,32 +16,32 @@ use crate::errors::AiStudioError;
 
 /// 租户管理 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(
-        create_tenant,
-        get_tenant,
-        get_tenant_by_slug,
-        update_tenant,
-        delete_tenant,
-        list_tenants,
-        get_tenant_stats,
-        suspend_tenant,
-        activate_tenant,
-        check_tenant_quota
-    ),
-    components(schemas(
-        CreateTenantRequest,
-        UpdateTenantRequest,
-        TenantResponse,
-        TenantStatsResponse,
-        crate::db::entities::tenant::TenantStatus,
-        crate::db::entities::tenant::TenantConfig,
-        crate::db::entities::tenant::TenantFeatures,
-        crate::db::entities::tenant::TenantQuotaLimits,
-        crate::db::entities::tenant::TenantUsageStats,
-    ))
-)]
-pub struct TenantApiDoc;
+// #[openapi(
+//     paths(
+//         create_tenant,
+//         get_tenant,
+//         get_tenant_by_slug,
+//         update_tenant,
+//         delete_tenant,
+//         list_tenants,
+//         get_tenant_stats,
+//         suspend_tenant,
+//         activate_tenant,
+//         check_tenant_quota
+//     ),
+//     components(schemas(
+//         CreateTenantRequest,
+//         UpdateTenantRequest,
+//         TenantResponse,
+//         TenantStatsResponse,
+//         crate::db::entities::tenant::TenantStatus,
+//         crate::db::entities::tenant::TenantConfig,
+//         crate::db::entities::tenant::TenantFeatures,
+//         crate::db::entities::tenant::TenantQuotaLimits,
+//         crate::db::entities::tenant::TenantUsageStats,
+//     ))
+// )]
+// pub struct TenantApiDoc;
 
 /// 创建租户
 #[utoipa::path(

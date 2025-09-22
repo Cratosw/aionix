@@ -1,7 +1,7 @@
 // 监控管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
 use crate::api::extractors::{AdminExtractor, PaginationExtractor};
@@ -17,31 +17,31 @@ use crate::errors::AiStudioError;
 
 /// 监控管理 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(
-        get_system_health,
-        get_tenant_usage_stats,
-        get_metric_trends,
-        record_metric,
-        get_notifications
-    ),
-    components(schemas(
-        crate::services::monitoring::SystemHealth,
-        crate::services::monitoring::HealthStatus,
-        crate::services::monitoring::ComponentHealth,
-        crate::services::monitoring::TenantUsageStats,
-        crate::services::monitoring::UsageMetric,
-        crate::services::monitoring::MetricType,
-        crate::services::monitoring::MetricDataPoint,
-        crate::services::notification::NotificationMessage,
-        crate::services::notification::NotificationType,
-        crate::services::notification::NotificationStatus,
-        MetricRecordRequest,
-        UsageStatsQuery,
-        TrendsQuery,
-    ))
-)]
-pub struct MonitoringApiDoc;
+// #[openapi(
+//     paths(
+//         get_system_health,
+//         get_tenant_usage_stats,
+//         get_metric_trends,
+//         record_metric,
+//         get_notifications
+//     ),
+//     components(schemas(
+//         crate::services::monitoring::SystemHealth,
+//         crate::services::monitoring::HealthStatus,
+//         crate::services::monitoring::ComponentHealth,
+//         crate::services::monitoring::TenantUsageStats,
+//         crate::services::monitoring::UsageMetric,
+//         crate::services::monitoring::MetricType,
+//         crate::services::monitoring::MetricDataPoint,
+//         crate::services::notification::NotificationMessage,
+//         crate::services::notification::NotificationType,
+//         crate::services::notification::NotificationStatus,
+//         MetricRecordRequest,
+//         UsageStatsQuery,
+//         TrendsQuery,
+//     ))
+// )]
+// pub struct MonitoringApiDoc;
 
 /// 获取系统健康状态
 #[utoipa::path(

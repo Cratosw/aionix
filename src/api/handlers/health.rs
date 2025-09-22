@@ -1,7 +1,7 @@
 // 健康检查处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use chrono::Utc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,11 +12,11 @@ use crate::errors::AiStudioError;
 
 /// 健康检查 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(health_check, health_detailed),
-    components(schemas(HealthResponse, HealthStatus, DependencyHealth, SystemInfo))
-)]
-pub struct HealthApiDoc;
+// #[openapi(
+//     paths(health_check, health_detailed),
+//     components(schemas(HealthResponse, HealthStatus, DependencyHealth, SystemInfo))
+// )]
+// pub struct HealthApiDoc;
 
 /// 简单健康检查
 #[utoipa::path(

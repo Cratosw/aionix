@@ -1,7 +1,7 @@
 // 版本信息处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use chrono::Utc;
 
 use crate::api::models::ApiVersion;
@@ -9,11 +9,11 @@ use crate::api::responses::HttpResponseBuilder;
 
 /// 版本 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(get_version, get_build_info),
-    components(schemas(ApiVersion))
-)]
-pub struct VersionApiDoc;
+// #[openapi(
+//     paths(get_version, get_build_info),
+//     components(schemas(ApiVersion))
+// )]
+// pub struct VersionApiDoc;
 
 /// 获取 API 版本信息
 #[utoipa::path(

@@ -1,7 +1,7 @@
 // 限流管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
 use crate::api::extractors::{AdminExtractor, PaginationExtractor};
@@ -15,21 +15,21 @@ use crate::errors::AiStudioError;
 
 /// 限流管理 API 文档
 // #[derive(OpenApi)]
-#[openapi(
-    paths(
-        get_rate_limit_stats,
-        check_rate_limit,
-        reset_rate_limit,
-        get_rate_limit_policies
-    ),
-    components(schemas(
-        crate::services::rate_limit::RateLimitPolicy,
-        crate::services::rate_limit::RateLimitResult,
-        RateLimitStatsResponse,
-        RateLimitCheckRequest,
-    ))
-)]
-pub struct RateLimitApiDoc;
+// #[openapi(
+//     paths(
+//         get_rate_limit_stats,
+//         check_rate_limit,
+//         reset_rate_limit,
+//         get_rate_limit_policies
+//     ),
+//     components(schemas(
+//         crate::services::rate_limit::RateLimitPolicy,
+//         crate::services::rate_limit::RateLimitResult,
+//         RateLimitStatsResponse,
+//         RateLimitCheckRequest,
+//     ))
+// )]
+// pub struct RateLimitApiDoc;
 
 /// 获取限流统计
 #[utoipa::path(
