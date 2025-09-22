@@ -165,18 +165,6 @@ pub enum Relation {
         to = "super::agent_execution::Column::Id"
     )]
     AgentExecution,
-    
-    /// 自关联：父步骤
-    #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ParentStepId",
-        to = "Column::Id"
-    )]
-    ParentStep,
-    
-    /// 一对多：子步骤
-    #[sea_orm(has_many = "Entity")]
-    ChildSteps,
 }
 
 /// 实现与工作流执行的关联

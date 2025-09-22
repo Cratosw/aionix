@@ -75,7 +75,7 @@ impl QuotaCheckMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaCheckMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -102,7 +102,7 @@ pub struct QuotaCheckMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaCheckMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -159,8 +159,8 @@ where
                 });
             }
 
-            let fut = self.service.call(req);
-            fut.await
+            let fut = service.call(req);
+            Ok(fut.await?.map_into_boxed_body())
         })
     }
 }
@@ -170,7 +170,7 @@ pub struct QuotaUpdateMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaUpdateMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -191,7 +191,7 @@ pub struct QuotaUpdateMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaUpdateMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -202,6 +202,8 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
+
         Box::pin(async move {
             let quota_update_info = req.extensions().get::<QuotaUpdateInfo>().cloned();
             
@@ -243,7 +245,7 @@ impl QuotaResetMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaResetMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -268,7 +270,7 @@ pub struct QuotaResetMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaResetMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -279,6 +281,7 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         let check_interval = self.check_interval;
 
         Box::pin(async move {
@@ -392,7 +395,7 @@ impl QuotaMiddlewareConfig {
     }
 
     /// 配置 AI 查询配额中间件
-    pub fn ai_queries() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn ai_queries() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
             cfg.wrap(QuotaCheckMiddleware::ai_queries());
             cfg.wrap(QuotaUpdateMiddleware);
@@ -400,7 +403,7 @@ impl QuotaMiddlewareConfig {
     }
 
     /// 配置存储配额中间件
-    pub fn storage(bytes: u64) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn storage(bytes: u64) -> impl Fn(&mut ServiceConfig) {
         move |cfg| {
             cfg.wrap(QuotaCheckMiddleware::storage(bytes));
             cfg.wrap(QuotaUpdateMiddleware);
@@ -408,7 +411,7 @@ impl QuotaMiddlewareConfig {
     }
 
     /// 配置文档配额中间件
-    pub fn documents(count: u64) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn documents(count: u64) -> impl Fn(&mut ServiceConfig) {
         move |cfg| {
             cfg.wrap(QuotaCheckMiddleware::documents(count));
             cfg.wrap(QuotaUpdateMiddleware);
@@ -416,7 +419,7 @@ impl QuotaMiddlewareConfig {
     }
 
     /// 配置完整的配额中间件栈
-    pub fn full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn full_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
             Box::new(|cfg| {
                 cfg.wrap(QuotaCheckMiddleware::api_calls());

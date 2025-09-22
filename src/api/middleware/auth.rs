@@ -91,7 +91,7 @@ impl JwtAuthMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for JwtAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -118,7 +118,7 @@ pub struct JwtAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for JwtAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -128,7 +128,8 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         let secret_key = self.secret_key.clone();
         let required_permissions = self.required_permissions.clone();
 
@@ -207,7 +208,7 @@ impl ApiKeyAuthMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for ApiKeyAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -232,7 +233,7 @@ pub struct ApiKeyAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for ApiKeyAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -242,7 +243,8 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         let required_permissions = self.required_permissions.clone();
 
         Box::pin(async move {
@@ -333,7 +335,7 @@ pub struct OptionalAuthMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for OptionalAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -354,7 +356,7 @@ pub struct OptionalAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for OptionalAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -364,7 +366,9 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
+
         Box::pin(async move {
             // 尝试 JWT 认证
             if let Some(auth_header) = req.headers().get("Authorization").and_then(|h| h.to_str().ok()) {
@@ -485,10 +489,11 @@ async fn verify_api_key(api_key: &str) -> Result<ApiKeyInfo, AiStudioError> {
             
             // 更新最后使用时间（异步执行，不阻塞当前请求）
             let key_id = key_model.id;
+            let key_model_clone = key_model.clone();
             tokio::spawn(async move {
                 if let Ok(db_manager) = DatabaseManager::get() {
                     let db = db_manager.get_connection();
-                    let mut active_model: api_key::ActiveModel = key_model.into();
+                    let mut active_model: api_key::ActiveModel = key_model_clone.into();
                     active_model.last_used_at = sea_orm::Set(Some(Utc::now().into()));
                     active_model.usage_count = sea_orm::Set(active_model.usage_count.unwrap() + 1);
                     let _ = active_model.update(db).await;

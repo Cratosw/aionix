@@ -31,6 +31,17 @@ pub enum UserRole {
     Viewer,
 }
 
+impl std::fmt::Display for UserRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UserRole::Admin => write!(f, "admin"),
+            UserRole::Manager => write!(f, "manager"),
+            UserRole::User => write!(f, "user"),
+            UserRole::Viewer => write!(f, "viewer"),
+        }
+    }
+}
+
 /// 用户实体
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]

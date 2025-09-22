@@ -143,18 +143,6 @@ pub enum Relation {
     )]
     TriggeredBy,
     
-    /// 自关联：父执行记录
-    #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ParentExecutionId",
-        to = "Column::Id"
-    )]
-    ParentExecution,
-    
-    /// 一对多：子执行记录
-    #[sea_orm(has_many = "Entity")]
-    ChildExecutions,
-    
     /// 一对多：步骤执行记录
     #[sea_orm(has_many = "super::step_execution::Entity")]
     StepExecutions,

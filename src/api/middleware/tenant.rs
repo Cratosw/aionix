@@ -82,7 +82,7 @@ impl TenantIdentificationMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for TenantIdentificationMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -109,7 +109,7 @@ pub struct TenantIdentificationMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for TenantIdentificationMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -119,7 +119,8 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         let strategy = self.strategy.clone();
         let required = self.required;
 
@@ -185,7 +186,7 @@ pub struct TenantIsolationMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for TenantIsolationMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -206,7 +207,7 @@ pub struct TenantIsolationMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for TenantIsolationMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {

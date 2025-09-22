@@ -159,7 +159,7 @@ impl AccessControlMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for AccessControlMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -184,7 +184,7 @@ pub struct AccessControlMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for AccessControlMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -194,7 +194,8 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         let policy = self.policy.clone();
 
         Box::pin(async move {

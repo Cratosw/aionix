@@ -15,6 +15,8 @@ pub use rate_limit::*;
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    web::ServiceConfig,
+    body::{MessageBody, BoxBody},
     Error, HttpMessage, HttpResponse,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
@@ -29,7 +31,7 @@ pub struct RequestIdMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -50,7 +52,7 @@ pub struct RequestIdMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for RequestIdMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -105,7 +107,7 @@ impl ApiVersionMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for ApiVersionMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -130,7 +132,7 @@ pub struct ApiVersionMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for ApiVersionMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -163,7 +165,7 @@ pub struct RequestLoggingMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for RequestLoggingMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -184,7 +186,7 @@ pub struct RequestLoggingMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for RequestLoggingMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -279,7 +281,7 @@ pub struct SecurityHeadersMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for SecurityHeadersMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -300,7 +302,7 @@ pub struct SecurityHeadersMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for SecurityHeadersMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -350,7 +352,7 @@ pub struct ResponseTimeMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for ResponseTimeMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -371,7 +373,7 @@ pub struct ResponseTimeMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for ResponseTimeMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -419,7 +421,7 @@ impl ContentTypeMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for ContentTypeMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
     B: 'static,
 {
@@ -444,18 +446,22 @@ pub struct ContentTypeMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for ContentTypeMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
     S::Future: 'static,
-    B: 'static,
+    B: MessageBody + 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<BoxBody>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        // 只对有 body 的请求检查内容类型
+        let service = self.service.clone();
+        let allowed_types = self.allowed_types.clone();
+
+        Box::pin(async move {
+            // 只对有 body 的请求检查内容类型
         if matches!(req.method(), &actix_web::http::Method::POST | &actix_web::http::Method::PUT | &actix_web::http::Method::PATCH) {
             let content_type = req
                 .headers()
@@ -463,7 +469,7 @@ where
                 .and_then(|h| h.to_str().ok())
                 .unwrap_or("");
 
-            let is_allowed = self.allowed_types.iter().any(|allowed| {
+            let is_allowed = allowed_types.iter().any(|allowed| {
                 content_type.starts_with(allowed)
             });
 
@@ -471,37 +477,36 @@ where
                 let response = HttpResponse::BadRequest()
                     .json(crate::api::responses::ErrorResponse::error::<()>(
                         "INVALID_CONTENT_TYPE".to_string(),
-                        format!("不支持的内容类型: {}，支持的类型: {:?}", content_type, self.allowed_types),
+                        format!("不支持的内容类型: {}，支持的类型: {:?}", content_type, allowed_types),
                     ));
                 
-                return Box::pin(async move {
-                    Ok(req.into_response(response))
-                });
+                return Ok(req.into_response(response).map_into_boxed_body());
             }
         }
 
-        let fut = self.service.call(req);
-        Box::pin(async move { fut.await })
+        let fut = service.call(req);
+        Ok(fut.await?.map_into_boxed_body())
+        })
     }
 }
 
 /// 中间件配置辅助函数
-pub fn configure_api_middleware() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+pub fn configure_api_middleware() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
     vec![
         Box::new(|cfg| {
-            cfg.wrap(RequestIdMiddleware);
+            cfg.service(RequestIdMiddleware);
         }),
         Box::new(|cfg| {
-            cfg.wrap(ApiVersionMiddleware::new(env!("CARGO_PKG_VERSION").to_string()));
+            cfg.service(ApiVersionMiddleware::new(env!("CARGO_PKG_VERSION").to_string()));
         }),
         Box::new(|cfg| {
-            cfg.wrap(RequestLoggingMiddleware);
+            cfg.service(RequestLoggingMiddleware);
         }),
         Box::new(|cfg| {
-            cfg.wrap(SecurityHeadersMiddleware);
+            cfg.service(SecurityHeadersMiddleware);
         }),
         Box::new(|cfg| {
-            cfg.wrap(ResponseTimeMiddleware);
+            cfg.service(ResponseTimeMiddleware);
         }),
     ]
 }
@@ -511,56 +516,56 @@ pub struct MiddlewareConfig;
 
 impl MiddlewareConfig {
     /// 配置标准 API 中间件栈（需要认证和租户）
-    pub fn api_standard() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn api_standard() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
-            cfg.wrap(AccessControlMiddleware::api_standard());
+            cfg.service(AccessControlMiddleware::api_standard());
         }
     }
 
     /// 配置管理员 API 中间件栈
-    pub fn admin_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn admin_only() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
-            cfg.wrap(AccessControlMiddleware::admin_only());
+            cfg.service(AccessControlMiddleware::admin_only());
         }
     }
 
     /// 配置公开 API 中间件栈（不需要认证）
-    pub fn public() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn public() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
-            cfg.wrap(AccessControlMiddleware::public());
+            cfg.service(AccessControlMiddleware::public());
         }
     }
 
     /// 配置带权限要求的 API 中间件栈
-    pub fn with_permissions(permissions: Vec<String>) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn with_permissions(permissions: Vec<String>) -> impl Fn(&mut ServiceConfig) {
         move |cfg| {
-            cfg.wrap(AccessControlMiddleware::with_permissions(permissions.clone()));
+            cfg.service(AccessControlMiddleware::with_permissions(permissions.clone()));
         }
     }
 
     /// 配置带角色要求的 API 中间件栈
-    pub fn with_roles(roles: Vec<String>) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn with_roles(roles: Vec<String>) -> impl Fn(&mut ServiceConfig) {
         move |cfg| {
-            cfg.wrap(AccessControlMiddleware::with_roles(roles.clone()));
+            cfg.service(AccessControlMiddleware::with_roles(roles.clone()));
         }
     }
 
     /// 配置 JWT 认证中间件
-    pub fn jwt_auth(secret_key: String) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn jwt_auth(secret_key: String) -> impl Fn(&mut ServiceConfig) {
         move |cfg| {
-            cfg.wrap(JwtAuthMiddleware::new(secret_key.clone()));
+            cfg.service(JwtAuthMiddleware::new(secret_key.clone()));
         }
     }
 
     /// 配置 API 密钥认证中间件
-    pub fn api_key_auth() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn api_key_auth() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
             cfg.wrap(ApiKeyAuthMiddleware::new());
         }
     }
 
     /// 配置租户识别中间件
-    pub fn tenant_identification() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn tenant_identification() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
             cfg.wrap(TenantIdentificationMiddleware::default());
             cfg.wrap(TenantIsolationMiddleware);
@@ -568,7 +573,7 @@ impl MiddlewareConfig {
     }
 
     /// 配置完整的中间件栈（基础 + 访问控制 + 配额 + 限流）
-    pub fn full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn full_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         let mut middleware = configure_api_middleware();
         middleware.push(Box::new(Self::api_standard()));
         middleware.push(Box::new(QuotaMiddlewareConfig::api_calls()));
@@ -577,21 +582,21 @@ impl MiddlewareConfig {
     }
 
     /// 配置管理员完整中间件栈
-    pub fn admin_full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn admin_full_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         let mut middleware = configure_api_middleware();
         middleware.push(Box::new(Self::admin_only()));
         middleware
     }
 
     /// 配置公开完整中间件栈
-    pub fn public_full_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn public_full_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         let mut middleware = configure_api_middleware();
         middleware.push(Box::new(Self::public()));
         middleware
     }
 
     /// 配置 AI 查询中间件栈
-    pub fn ai_query_stack() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn ai_query_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         let mut middleware = configure_api_middleware();
         middleware.push(Box::new(Self::api_standard()));
         middleware.push(Box::new(QuotaMiddlewareConfig::ai_queries()));
@@ -600,7 +605,7 @@ impl MiddlewareConfig {
     }
 
     /// 配置文件上传中间件栈
-    pub fn file_upload_stack(file_size_bytes: u64) -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn file_upload_stack(file_size_bytes: u64) -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         let mut middleware = configure_api_middleware();
         middleware.push(Box::new(Self::api_standard()));
         middleware.push(Box::new(QuotaMiddlewareConfig::storage(file_size_bytes)));
