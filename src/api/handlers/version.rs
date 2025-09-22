@@ -16,16 +16,6 @@ use crate::api::responses::HttpResponseBuilder;
 // pub struct VersionApiDoc;
 
 /// 获取 API 版本信息
-#[utoipa::path(
-    get,
-    path = "/version",
-    tag = "Version",
-    summary = "获取 API 版本信息",
-    description = "返回当前 API 的版本信息和支持的功能",
-    responses(
-        (status = 200, description = "版本信息", body = ApiVersion)
-    )
-)]
 pub async fn get_version() -> ActixResult<HttpResponse> {
     let version_info = ApiVersion {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -38,16 +28,6 @@ pub async fn get_version() -> ActixResult<HttpResponse> {
 }
 
 /// 获取构建信息
-#[utoipa::path(
-    get,
-    path = "/build-info",
-    tag = "Version",
-    summary = "获取构建信息",
-    description = "返回详细的构建信息，包括编译时间、Git 信息等",
-    responses(
-        (status = 200, description = "构建信息", body = serde_json::Value)
-    )
-)]
 pub async fn get_build_info() -> ActixResult<HttpResponse> {
     let build_info = serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
@@ -70,16 +50,6 @@ pub async fn get_build_info() -> ActixResult<HttpResponse> {
 }
 
 /// 获取 API 规范信息
-#[utoipa::path(
-    get,
-    path = "/spec",
-    tag = "Version",
-    summary = "获取 API 规范信息",
-    description = "返回 API 规范的元信息",
-    responses(
-        (status = 200, description = "API 规范信息", body = serde_json::Value)
-    )
-)]
 pub async fn get_api_spec() -> ActixResult<HttpResponse> {
     let spec_info = serde_json::json!({
         "openapi": "3.0.3",
@@ -184,7 +154,9 @@ fn get_build_profile() -> String {
 
 /// 获取目标三元组
 fn get_target_triple() -> String {
-    env!("TARGET").to_string()
+    option_env!("TARGET")
+        .unwrap_or("unknown")
+        .to_string()
 }
 
 /// 获取启用的功能

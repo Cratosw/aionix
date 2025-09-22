@@ -19,17 +19,6 @@ use crate::errors::AiStudioError;
 // pub struct HealthApiDoc;
 
 /// 简单健康检查
-#[utoipa::path(
-    get,
-    path = "/health",
-    tag = "Health",
-    summary = "简单健康检查",
-    description = "返回服务的基本健康状态",
-    responses(
-        (status = 200, description = "服务健康", body = HealthResponse),
-        (status = 503, description = "服务不健康", body = HealthResponse)
-    )
-)]
 pub async fn health_check() -> ActixResult<HttpResponse> {
     let health_response = HealthResponse {
         status: HealthStatus::Healthy,
@@ -48,17 +37,6 @@ pub async fn health_check() -> ActixResult<HttpResponse> {
 }
 
 /// 详细健康检查
-#[utoipa::path(
-    get,
-    path = "/health/detailed",
-    tag = "Health",
-    summary = "详细健康检查",
-    description = "返回服务及其依赖的详细健康状态",
-    responses(
-        (status = 200, description = "服务健康", body = HealthResponse),
-        (status = 503, description = "服务不健康", body = HealthResponse)
-    )
-)]
 pub async fn health_detailed() -> ActixResult<HttpResponse> {
     let mut dependencies = Vec::new();
     let mut overall_status = HealthStatus::Healthy;
@@ -118,17 +96,6 @@ pub async fn health_detailed() -> ActixResult<HttpResponse> {
 }
 
 /// 就绪检查
-#[utoipa::path(
-    get,
-    path = "/ready",
-    tag = "Health",
-    summary = "就绪检查",
-    description = "检查服务是否准备好接收请求",
-    responses(
-        (status = 200, description = "服务就绪"),
-        (status = 503, description = "服务未就绪")
-    )
-)]
 pub async fn readiness_check() -> ActixResult<HttpResponse> {
     // 检查关键依赖是否可用
     let db_health = check_database_health().await;
@@ -146,16 +113,6 @@ pub async fn readiness_check() -> ActixResult<HttpResponse> {
 }
 
 /// 存活检查
-#[utoipa::path(
-    get,
-    path = "/live",
-    tag = "Health",
-    summary = "存活检查",
-    description = "检查服务是否存活",
-    responses(
-        (status = 200, description = "服务存活")
-    )
-)]
 pub async fn liveness_check() -> ActixResult<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "alive": true,

@@ -40,20 +40,6 @@ use crate::errors::AiStudioError;
 // pub struct AuthApiDoc;
 
 /// 用户登录
-#[utoipa::path(
-    post,
-    path = "/auth/login",
-    tag = "Auth",
-    summary = "用户登录",
-    description = "使用用户名/邮箱和密码进行登录，返回访问令牌和刷新令牌",
-    request_body = LoginRequest,
-    responses(
-        (status = 200, description = "登录成功", body = LoginResponse),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "用户名或密码错误"),
-        (status = 403, description = "账户被禁用")
-    )
-)]
 pub async fn login(
     req: HttpRequest,
     request: web::Json<LoginRequest>,
@@ -84,19 +70,6 @@ pub async fn login(
 }
 
 /// 刷新访问令牌
-#[utoipa::path(
-    post,
-    path = "/auth/refresh",
-    tag = "Auth",
-    summary = "刷新访问令牌",
-    description = "使用刷新令牌获取新的访问令牌",
-    request_body = RefreshTokenRequest,
-    responses(
-        (status = 200, description = "刷新成功", body = RefreshTokenResponse),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "刷新令牌无效或已过期")
-    )
-)]
 pub async fn refresh_token(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -114,19 +87,6 @@ pub async fn refresh_token(
 }
 
 /// 用户注册
-#[utoipa::path(
-    post,
-    path = "/auth/register",
-    tag = "Auth",
-    summary = "用户注册",
-    description = "注册新用户账户",
-    request_body = RegisterRequest,
-    responses(
-        (status = 201, description = "注册成功", body = RegisterResponse),
-        (status = 400, description = "请求参数错误"),
-        (status = 409, description = "用户名或邮箱已存在")
-    )
-)]
 pub async fn register(
     request: web::Json<RegisterRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -144,22 +104,6 @@ pub async fn register(
 }
 
 /// 用户登出
-#[utoipa::path(
-    post,
-    path = "/auth/logout",
-    tag = "Auth",
-    summary = "用户登出",
-    description = "登出当前用户，使刷新令牌失效",
-    request_body = RefreshTokenRequest,
-    responses(
-        (status = 204, description = "登出成功"),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "刷新令牌无效")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn logout(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -177,19 +121,6 @@ pub async fn logout(
 }
 
 /// 请求密码重置
-#[utoipa::path(
-    post,
-    path = "/auth/password-reset",
-    tag = "Auth",
-    summary = "请求密码重置",
-    description = "发送密码重置邮件",
-    request_body = PasswordResetRequest,
-    responses(
-        (status = 204, description = "重置邮件已发送"),
-        (status = 400, description = "请求参数错误"),
-        (status = 404, description = "用户不存在")
-    )
-)]
 pub async fn request_password_reset(
     request: web::Json<PasswordResetRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -207,19 +138,6 @@ pub async fn request_password_reset(
 }
 
 /// 确认密码重置
-#[utoipa::path(
-    post,
-    path = "/auth/password-reset/confirm",
-    tag = "Auth",
-    summary = "确认密码重置",
-    description = "使用重置令牌设置新密码",
-    request_body = PasswordResetConfirmRequest,
-    responses(
-        (status = 204, description = "密码重置成功"),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "重置令牌无效或已过期")
-    )
-)]
 pub async fn confirm_password_reset(
     request: web::Json<PasswordResetConfirmRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -229,20 +147,6 @@ pub async fn confirm_password_reset(
 }
 
 /// 获取当前用户信息
-#[utoipa::path(
-    get,
-    path = "/auth/me",
-    tag = "Auth",
-    summary = "获取当前用户信息",
-    description = "获取当前认证用户的详细信息",
-    responses(
-        (status = 200, description = "获取成功", body = crate::services::auth::UserInfo),
-        (status = 401, description = "未授权")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_current_user(
     auth: crate::api::extractors::AuthExtractor,
 ) -> ActixResult<HttpResponse> {
@@ -272,21 +176,6 @@ pub async fn get_current_user(
 }
 
 /// 验证邮箱
-#[utoipa::path(
-    post,
-    path = "/auth/verify-email",
-    tag = "Auth",
-    summary = "验证邮箱",
-    description = "使用验证令牌验证用户邮箱",
-    params(
-        ("token" = String, Query, description = "邮箱验证令牌")
-    ),
-    responses(
-        (status = 204, description = "邮箱验证成功"),
-        (status = 400, description = "验证令牌无效"),
-        (status = 404, description = "用户不存在")
-    )
-)]
 pub async fn verify_email(
     query: web::Query<EmailVerificationQuery>,
 ) -> ActixResult<HttpResponse> {
@@ -296,20 +185,6 @@ pub async fn verify_email(
 }
 
 /// 重新发送验证邮件
-#[utoipa::path(
-    post,
-    path = "/auth/resend-verification",
-    tag = "Auth",
-    summary = "重新发送验证邮件",
-    description = "重新发送邮箱验证邮件",
-    request_body = ResendVerificationRequest,
-    responses(
-        (status = 204, description = "验证邮件已发送"),
-        (status = 400, description = "请求参数错误"),
-        (status = 404, description = "用户不存在"),
-        (status = 409, description = "邮箱已验证")
-    )
-)]
 pub async fn resend_verification_email(
     request: web::Json<ResendVerificationRequest>,
 ) -> ActixResult<HttpResponse> {

@@ -141,56 +141,6 @@ where
                 "message": "Middleware temporarily disabled"
             })).map_into_boxed_body())
         })
-            // 提取 Authorization 头
-            let auth_header = req
-                .headers()
-                .get("Authorization")
-                .and_then(|h| h.to_str().ok());
-
-            let token = match auth_header {
-                Some(header) if header.starts_with("Bearer ") => &header[7..],
-                _ => {
-                    let response = HttpResponse::Unauthorized()
-                        .json(ErrorResponse::unauthorized::<()>());
-                    return Ok(req.into_response(response));
-                }
-            };
-
-            // 验证 JWT 令牌
-            match verify_jwt_token(token, &secret_key).await {
-                Ok(user) => {
-                    // 检查权限
-                    if !required_permissions.is_empty() {
-                        let has_permission = required_permissions.iter().any(|perm| {
-                            user.is_admin || user.permissions.contains(perm)
-                        });
-
-                        if !has_permission {
-                            let response = HttpResponse::Forbidden()
-                                .json(ErrorResponse::forbidden::<()>());
-                            return Ok(req.into_response(response));
-                        }
-                    }
-
-                    // 将用户信息存储在请求扩展中
-                    req.extensions_mut().insert(user);
-                }
-                Err(e) => {
-                    warn!("JWT 验证失败: {}", e);
-                    let response = HttpResponse::Unauthorized()
-                        .json(ErrorResponse::detailed_error::<()>(
-                            "INVALID_TOKEN".to_string(),
-                            "无效的访问令牌".to_string(),
-                            None,
-                            None,
-                        ));
-                    return Ok(req.into_response(response));
-                }
-            }
-
-            let fut = self.service.call(req);
-            Ok(fut.await?.map_into_boxed_body())
-        })
     }
 }
 

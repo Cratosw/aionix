@@ -44,20 +44,6 @@ use crate::errors::AiStudioError;
 // pub struct MonitoringApiDoc;
 
 /// 获取系统健康状态
-#[utoipa::path(
-    get,
-    path = "/monitoring/health",
-    tag = "Monitoring",
-    summary = "获取系统健康状态",
-    description = "获取系统整体健康状态和各组件状态",
-    responses(
-        (status = 200, description = "系统健康状态", body = SystemHealth),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_system_health(
     _admin: AdminExtractor,
 ) -> ActixResult<HttpResponse> {
@@ -71,26 +57,6 @@ pub async fn get_system_health(
 }
 
 /// 获取租户使用统计
-#[utoipa::path(
-    get,
-    path = "/monitoring/tenants/{tenant_id}/usage",
-    tag = "Monitoring",
-    summary = "获取租户使用统计",
-    description = "获取指定租户的详细使用统计信息",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("period_hours" = u32, Query, description = "统计时间范围（小时）", example = 24)
-    ),
-    responses(
-        (status = 200, description = "租户使用统计", body = TenantUsageStats),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_tenant_usage_stats(
     path: web::Path<Uuid>,
     query: web::Query<UsageStatsQuery>,
@@ -116,27 +82,6 @@ pub async fn get_tenant_usage_stats(
 }
 
 /// 获取指标趋势
-#[utoipa::path(
-    get,
-    path = "/monitoring/tenants/{tenant_id}/metrics/{metric_type}/trends",
-    tag = "Monitoring",
-    summary = "获取指标趋势",
-    description = "获取指定租户特定指标类型的趋势数据",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("metric_type" = MetricType, Path, description = "指标类型"),
-        ("hours" = u32, Query, description = "查询时间范围（小时）", example = 24)
-    ),
-    responses(
-        (status = 200, description = "指标趋势数据"),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_metric_trends(
     path: web::Path<(Uuid, String)>,
     query: web::Query<TrendsQuery>,
@@ -168,26 +113,6 @@ pub async fn get_metric_trends(
 }
 
 /// 记录指标数据
-#[utoipa::path(
-    post,
-    path = "/monitoring/tenants/{tenant_id}/metrics",
-    tag = "Monitoring",
-    summary = "记录指标数据",
-    description = "记录指定租户的指标数据点（管理员专用）",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    request_body = MetricRecordRequest,
-    responses(
-        (status = 200, description = "记录成功"),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-        (status = 400, description = "请求参数错误"),
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn record_metric(
     path: web::Path<Uuid>,
     request: web::Json<MetricRecordRequest>,
@@ -218,27 +143,6 @@ pub async fn record_metric(
 }
 
 /// 获取通知列表
-#[utoipa::path(
-    get,
-    path = "/monitoring/tenants/{tenant_id}/notifications",
-    tag = "Monitoring",
-    summary = "获取通知列表",
-    description = "获取指定租户的通知消息列表",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("notification_type" = Option<NotificationType>, Query, description = "通知类型过滤"),
-        ("limit" = Option<u32>, Query, description = "返回数量限制", example = 50)
-    ),
-    responses(
-        (status = 200, description = "通知列表"),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_notifications(
     path: web::Path<Uuid>,
     query: web::Query<NotificationsQuery>,

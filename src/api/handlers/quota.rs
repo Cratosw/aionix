@@ -36,25 +36,6 @@ use crate::errors::AiStudioError;
 // pub struct QuotaApiDoc;
 
 /// 获取租户配额统计
-#[utoipa::path(
-    get,
-    path = "/tenants/{tenant_id}/quota/stats",
-    tag = "Quota",
-    summary = "获取租户配额统计",
-    description = "获取指定租户的所有配额使用情况和统计信息",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    responses(
-        (status = 200, description = "配额统计信息", body = QuotaStatsResponse),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_quota_stats(
     path: web::Path<Uuid>,
     tenant_info: web::ReqData<TenantInfo>,
@@ -77,27 +58,6 @@ pub async fn get_quota_stats(
 }
 
 /// 检查特定配额
-#[utoipa::path(
-    get,
-    path = "/tenants/{tenant_id}/quota/{quota_type}/check",
-    tag = "Quota",
-    summary = "检查特定配额",
-    description = "检查指定租户的特定配额类型是否允许指定数量的操作",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("quota_type" = QuotaType, Path, description = "配额类型"),
-        ("amount" = u64, Query, description = "请求的数量", example = 1)
-    ),
-    responses(
-        (status = 200, description = "配额检查结果", body = QuotaCheckResult),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn check_quota(
     path: web::Path<(Uuid, String)>,
     query: web::Query<CheckQuotaQuery>,
@@ -124,26 +84,6 @@ pub async fn check_quota(
 }
 
 /// 更新配额使用量
-#[utoipa::path(
-    post,
-    path = "/tenants/{tenant_id}/quota/update",
-    tag = "Quota",
-    summary = "更新配额使用量",
-    description = "更新指定租户的配额使用量（管理员专用）",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    request_body = QuotaUpdateRequest,
-    responses(
-        (status = 200, description = "更新成功", body = crate::services::quota::QuotaUsage),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-        (status = 400, description = "请求参数错误"),
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn update_quota(
     path: web::Path<Uuid>,
     request: web::Json<QuotaUpdateRequest>,
@@ -161,24 +101,6 @@ pub async fn update_quota(
 }
 
 /// 重置时间相关配额
-#[utoipa::path(
-    post,
-    path = "/tenants/{tenant_id}/quota/reset",
-    tag = "Quota",
-    summary = "重置时间相关配额",
-    description = "重置指定租户的时间相关配额（如每日、每月配额）",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    responses(
-        (status = 200, description = "重置成功"),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn reset_quota(
     path: web::Path<Uuid>,
     _admin: AdminExtractor,
@@ -199,27 +121,6 @@ pub async fn reset_quota(
 }
 
 /// 获取配额使用趋势
-#[utoipa::path(
-    get,
-    path = "/tenants/{tenant_id}/quota/{quota_type}/trends",
-    tag = "Quota",
-    summary = "获取配额使用趋势",
-    description = "获取指定租户特定配额类型的使用趋势数据",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("quota_type" = QuotaType, Path, description = "配额类型"),
-        ("days" = u32, Query, description = "查询天数", example = 7)
-    ),
-    responses(
-        (status = 200, description = "趋势数据"),
-        (status = 404, description = "租户不存在"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_quota_trends(
     path: web::Path<(Uuid, String)>,
     query: web::Query<TrendsQuery>,

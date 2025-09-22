@@ -4,7 +4,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse, Result as ActixResult,
-    body::BoxBody,
+    body::BoxBody, web::ServiceConfig,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use std::future::{ready as std_ready, Ready as StdReady};
@@ -159,7 +159,7 @@ where
                 });
             }
 
-            let fut = service.call(req);
+            let fut = self.service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -387,7 +387,7 @@ pub struct QuotaMiddlewareConfig;
 
 impl QuotaMiddlewareConfig {
     /// 配置 API 调用配额中间件
-    pub fn api_calls() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
+    pub fn api_calls() -> impl Fn(&mut ServiceConfig) {
         |cfg| {
             cfg.wrap(QuotaCheckMiddleware::api_calls());
             cfg.wrap(QuotaUpdateMiddleware);

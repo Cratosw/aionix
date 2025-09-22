@@ -4,7 +4,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse, Result as ActixResult,
-    body::BoxBody,
+    body::BoxBody, web::ServiceConfig,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use std::future::{ready as std_ready, Ready as StdReady};
@@ -175,7 +175,7 @@ where
                 }
             }
 
-            let fut = self.service.call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -218,6 +218,7 @@ where
     forward_ready!(service);
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
+        let service = self.service.clone();
         Box::pin(async move {
             // 验证租户数据隔离
             if let Some(tenant_info) = req.extensions().get::<TenantInfo>() {
@@ -266,7 +267,7 @@ where
                 req.extensions_mut().insert(tenant_info.context.clone());
             }
 
-            let fut = self.service.call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }

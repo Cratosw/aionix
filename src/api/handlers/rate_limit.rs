@@ -32,21 +32,6 @@ use crate::errors::AiStudioError;
 // pub struct RateLimitApiDoc;
 
 /// 获取限流统计
-#[utoipa::path(
-    get,
-    path = "/rate-limit/stats",
-    tag = "RateLimit",
-    summary = "获取限流统计",
-    description = "获取当前用户或 API 密钥的限流统计信息",
-    responses(
-        (status = 200, description = "限流统计信息", body = RateLimitStatsResponse),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_rate_limit_stats(
     user: Option<web::ReqData<AuthenticatedUser>>,
     api_key: Option<web::ReqData<ApiKeyInfo>>,
@@ -119,23 +104,6 @@ pub async fn get_rate_limit_stats(
 }
 
 /// 检查限流状态
-#[utoipa::path(
-    post,
-    path = "/rate-limit/check",
-    tag = "RateLimit",
-    summary = "检查限流状态",
-    description = "检查指定的限流策略是否允许请求",
-    request_body = RateLimitCheckRequest,
-    responses(
-        (status = 200, description = "限流检查结果", body = RateLimitResult),
-        (status = 403, description = "权限不足"),
-        (status = 400, description = "请求参数错误"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn check_rate_limit(
     request: web::Json<RateLimitCheckRequest>,
     user: Option<web::ReqData<AuthenticatedUser>>,
@@ -184,22 +152,6 @@ pub async fn check_rate_limit(
 }
 
 /// 重置限流计数器
-#[utoipa::path(
-    post,
-    path = "/rate-limit/reset",
-    tag = "RateLimit",
-    summary = "重置限流计数器",
-    description = "重置指定的限流计数器（管理员专用）",
-    request_body = RateLimitResetRequest,
-    responses(
-        (status = 200, description = "重置成功"),
-        (status = 403, description = "权限不足"),
-        (status = 400, description = "请求参数错误"),
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn reset_rate_limit(
     request: web::Json<RateLimitResetRequest>,
     _admin: AdminExtractor,
@@ -234,21 +186,6 @@ pub async fn reset_rate_limit(
 }
 
 /// 获取限流策略
-#[utoipa::path(
-    get,
-    path = "/rate-limit/policies",
-    tag = "RateLimit",
-    summary = "获取限流策略",
-    description = "获取系统预定义的限流策略",
-    responses(
-        (status = 200, description = "限流策略列表"),
-        (status = 403, description = "权限不足"),
-    ),
-    security(
-        ("bearer_auth" = []),
-        ("api_key" = [])
-    )
-)]
 pub async fn get_rate_limit_policies() -> ActixResult<HttpResponse> {
     use crate::services::rate_limit::RateLimitPolicies;
 

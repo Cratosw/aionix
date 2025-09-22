@@ -44,24 +44,6 @@ use crate::errors::AiStudioError;
 // pub struct TenantApiDoc;
 
 /// 创建租户
-#[utoipa::path(
-    post,
-    path = "/tenants",
-    tag = "Tenant",
-    summary = "创建租户",
-    description = "创建新的租户，需要管理员权限",
-    request_body = CreateTenantRequest,
-    responses(
-        (status = 201, description = "租户创建成功", body = TenantResponse),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 409, description = "租户名称或标识符已存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn create_tenant(
     _admin: AdminExtractor,
     request: web::Json<CreateTenantRequest>,
@@ -75,25 +57,6 @@ pub async fn create_tenant(
 }
 
 /// 获取租户详情
-#[utoipa::path(
-    get,
-    path = "/tenants/{tenant_id}",
-    tag = "Tenant",
-    summary = "获取租户详情",
-    description = "根据租户 ID 获取租户详细信息",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    responses(
-        (status = 200, description = "获取成功", body = TenantResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -108,25 +71,6 @@ pub async fn get_tenant(
 }
 
 /// 根据标识符获取租户
-#[utoipa::path(
-    get,
-    path = "/tenants/by-slug/{slug}",
-    tag = "Tenant",
-    summary = "根据标识符获取租户",
-    description = "根据租户标识符获取租户详细信息",
-    params(
-        ("slug" = String, Path, description = "租户标识符")
-    ),
-    responses(
-        (status = 200, description = "获取成功", body = TenantResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_tenant_by_slug(
     _admin: AdminExtractor,
     path: web::Path<String>,
@@ -141,27 +85,6 @@ pub async fn get_tenant_by_slug(
 }
 
 /// 更新租户
-#[utoipa::path(
-    put,
-    path = "/tenants/{tenant_id}",
-    tag = "Tenant",
-    summary = "更新租户",
-    description = "更新租户信息，需要管理员权限",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    request_body = UpdateTenantRequest,
-    responses(
-        (status = 200, description = "更新成功", body = TenantResponse),
-        (status = 400, description = "请求参数错误"),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn update_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -177,26 +100,6 @@ pub async fn update_tenant(
 }
 
 /// 删除租户
-#[utoipa::path(
-    delete,
-    path = "/tenants/{tenant_id}",
-    tag = "Tenant",
-    summary = "删除租户",
-    description = "删除租户，需要管理员权限。只能删除没有关联数据的租户",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    responses(
-        (status = 204, description = "删除成功"),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在"),
-        (status = 409, description = "租户包含关联数据，无法删除")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn delete_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -211,31 +114,6 @@ pub async fn delete_tenant(
 }
 
 /// 列出租户
-#[utoipa::path(
-    get,
-    path = "/tenants",
-    tag = "Tenant",
-    summary = "列出租户",
-    description = "分页列出所有租户，支持过滤和搜索",
-    params(
-        ("page" = Option<u32>, Query, description = "页码，从 1 开始"),
-        ("page_size" = Option<u32>, Query, description = "每页大小，默认 20，最大 100"),
-        ("sort_by" = Option<String>, Query, description = "排序字段：name, created_at, updated_at"),
-        ("sort_order" = Option<String>, Query, description = "排序方向：asc, desc"),
-        ("status" = Option<String>, Query, description = "状态过滤：active, suspended, inactive"),
-        ("name_search" = Option<String>, Query, description = "名称搜索"),
-        ("created_after" = Option<String>, Query, description = "创建时间过滤（之后）"),
-        ("created_before" = Option<String>, Query, description = "创建时间过滤（之前）")
-    ),
-    responses(
-        (status = 200, description = "获取成功", body = crate::api::models::PaginatedResponse<TenantResponse>),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn list_tenants(
     _admin: AdminExtractor,
     pagination: PaginationExtractor,
@@ -272,21 +150,6 @@ pub async fn list_tenants(
 }
 
 /// 获取租户统计
-#[utoipa::path(
-    get,
-    path = "/tenants/stats",
-    tag = "Tenant",
-    summary = "获取租户统计",
-    description = "获取租户统计信息，需要管理员权限",
-    responses(
-        (status = 200, description = "获取成功", body = TenantStatsResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn get_tenant_stats(
     _admin: AdminExtractor,
 ) -> ActixResult<HttpResponse> {
@@ -299,26 +162,6 @@ pub async fn get_tenant_stats(
 }
 
 /// 暂停租户
-#[utoipa::path(
-    post,
-    path = "/tenants/{tenant_id}/suspend",
-    tag = "Tenant",
-    summary = "暂停租户",
-    description = "暂停租户，需要管理员权限",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    request_body = SuspendTenantRequest,
-    responses(
-        (status = 200, description = "暂停成功", body = TenantResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn suspend_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -334,25 +177,6 @@ pub async fn suspend_tenant(
 }
 
 /// 激活租户
-#[utoipa::path(
-    post,
-    path = "/tenants/{tenant_id}/activate",
-    tag = "Tenant",
-    summary = "激活租户",
-    description = "激活租户，需要管理员权限",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID")
-    ),
-    responses(
-        (status = 200, description = "激活成功", body = TenantResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn activate_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -367,27 +191,6 @@ pub async fn activate_tenant(
 }
 
 /// 检查租户配额
-#[utoipa::path(
-    get,
-    path = "/tenants/{tenant_id}/quota/{resource_type}",
-    tag = "Tenant",
-    summary = "检查租户配额",
-    description = "检查租户特定资源的配额使用情况",
-    params(
-        ("tenant_id" = Uuid, Path, description = "租户 ID"),
-        ("resource_type" = String, Path, description = "资源类型：users, knowledge_bases, documents, storage, monthly_api_calls, daily_ai_queries"),
-        ("requested_amount" = Option<i64>, Query, description = "请求的资源数量，默认为 1")
-    ),
-    responses(
-        (status = 200, description = "检查成功", body = QuotaCheckResponse),
-        (status = 401, description = "未授权"),
-        (status = 403, description = "权限不足"),
-        (status = 404, description = "租户不存在")
-    ),
-    security(
-        ("bearer_auth" = [])
-    )
-)]
 pub async fn check_tenant_quota(
     _admin: AdminExtractor,
     path: web::Path<(Uuid, String)>,
