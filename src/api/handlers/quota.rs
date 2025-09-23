@@ -35,7 +35,22 @@ use crate::errors::AiStudioError;
 // pub struct QuotaApiDoc;
 
 /// 获取租户配额统计
-pub async fn get_quota_stats(
+#[utoipa::path(
+    get,
+    path = "/quota/{tenant_id}/usage",
+    tag = "quota",
+    summary = "获取配额使用统计",
+    description = "获取指定租户的配额使用统计信息",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    responses(
+        (status = 200, description = "配额统计信息", body = QuotaStatsResponse),
+        (status = 403, description = "无权访问", body = ApiError),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
+pub async fn get_quota_usage(
     path: web::Path<Uuid>,
     _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
@@ -57,6 +72,23 @@ pub async fn get_quota_stats(
 }
 
 /// 检查特定配额
+#[utoipa::path(
+    get,
+    path = "/quota/{tenant_id}/{quota_type}/check",
+    tag = "quota",
+    summary = "检查配额",
+    description = "检查指定租户的特定配额是否可用",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID"),
+        ("quota_type" = String, Path, description = "配额类型"),
+        ("amount" = Option<i64>, Query, description = "请求数量")
+    ),
+    responses(
+        (status = 200, description = "配额检查结果", body = QuotaCheckResult),
+        (status = 403, description = "无权访问", body = ApiError),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn check_quota(
     path: web::Path<(Uuid, String)>,
     query: web::Query<CheckQuotaQuery>,
@@ -83,6 +115,22 @@ pub async fn check_quota(
 }
 
 /// 更新配额使用量
+#[utoipa::path(
+    put,
+    path = "/quota/{tenant_id}",
+    tag = "quota",
+    summary = "更新配额",
+    description = "更新指定租户的配额设置",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    request_body = QuotaUpdateRequest,
+    responses(
+        (status = 200, description = "配额更新成功"),
+        (status = 403, description = "无权访问", body = ApiError),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn update_quota(
     path: web::Path<Uuid>,
     request: web::Json<QuotaUpdateRequest>,

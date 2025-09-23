@@ -17,6 +17,17 @@ use crate::db::DatabaseManager;
 // pub struct HealthApiDoc;
 
 /// 简单健康检查
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "health",
+    summary = "健康检查",
+    description = "检查服务健康状态",
+    responses(
+        (status = 200, description = "服务健康", body = HealthResponse),
+        (status = 503, description = "服务不可用", body = ApiError)
+    )
+)]
 pub async fn health_check() -> ActixResult<HttpResponse> {
     let health_response = HealthResponse {
         status: HealthStatus::Healthy,

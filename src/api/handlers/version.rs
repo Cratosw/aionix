@@ -14,6 +14,16 @@ use crate::api::responses::HttpResponseBuilder;
 // pub struct VersionApiDoc;
 
 /// 获取 API 版本信息
+#[utoipa::path(
+    get,
+    path = "/version",
+    tag = "version",
+    summary = "获取版本信息",
+    description = "获取 API 版本和构建信息",
+    responses(
+        (status = 200, description = "版本信息", body = ApiVersion)
+    )
+)]
 pub async fn get_version() -> ActixResult<HttpResponse> {
     let version_info = ApiVersion {
         version: env!("CARGO_PKG_VERSION").to_string(),

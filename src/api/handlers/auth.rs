@@ -13,6 +13,18 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 use crate::api::extractors::AuthExtractor;
 
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    tag = "auth",
+    summary = "用户登录",
+    description = "用户登录认证",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "登录成功", body = LoginResponse),
+        (status = 401, description = "认证失败", body = ApiError)
+    )
+)]
 pub async fn login(
     req: HttpRequest,
     request: web::Json<LoginRequest>,
@@ -36,6 +48,18 @@ pub async fn login(
     HttpResponseBuilder::ok(response)
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/refresh",
+    tag = "auth",
+    summary = "刷新令牌",
+    description = "使用刷新令牌获取新的访问令牌",
+    request_body = RefreshTokenRequest,
+    responses(
+        (status = 200, description = "令牌刷新成功", body = LoginResponse),
+        (status = 401, description = "刷新令牌无效", body = ApiError)
+    )
+)]
 pub async fn refresh_token(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -52,6 +76,19 @@ pub async fn refresh_token(
     HttpResponseBuilder::ok(response)
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/register",
+    tag = "auth",
+    summary = "用户注册",
+    description = "注册新用户",
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "注册成功", body = RegisterResponse),
+        (status = 400, description = "注册参数错误", body = ApiError),
+        (status = 409, description = "用户已存在", body = ApiError)
+    )
+)]
 pub async fn register(
     request: web::Json<RegisterRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -68,6 +105,18 @@ pub async fn register(
     HttpResponseBuilder::created(response)
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    tag = "auth",
+    summary = "用户登出",
+    description = "用户登出并撤销令牌",
+    request_body = RefreshTokenRequest,
+    responses(
+        (status = 204, description = "登出成功"),
+        (status = 401, description = "令牌无效", body = ApiError)
+    )
+)]
 pub async fn logout(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -84,6 +133,18 @@ pub async fn logout(
     HttpResponseBuilder::no_content()
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset",
+    tag = "auth",
+    summary = "请求密码重置",
+    description = "发送密码重置邮件",
+    request_body = PasswordResetRequest,
+    responses(
+        (status = 204, description = "重置邮件已发送"),
+        (status = 404, description = "用户不存在", body = ApiError)
+    )
+)]
 pub async fn request_password_reset(
     request: web::Json<PasswordResetRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -100,6 +161,18 @@ pub async fn request_password_reset(
     HttpResponseBuilder::no_content()
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset/confirm",
+    tag = "auth",
+    summary = "确认密码重置",
+    description = "使用重置令牌设置新密码",
+    request_body = PasswordResetConfirmRequest,
+    responses(
+        (status = 204, description = "密码重置成功"),
+        (status = 400, description = "重置令牌无效", body = ApiError)
+    )
+)]
 pub async fn confirm_password_reset(
     request: web::Json<PasswordResetConfirmRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -116,62 +189,78 @@ pub async fn confirm_password_reset(
     HttpResponseBuilder::no_content()
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    tag = "auth",
+    summary = "获取当前用户信息",
+    description = "获取当前登录用户的详细信息",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "用户信息", body = UserInfo),
+        (status = 401, description = "未认证", body = ApiError)
+    )
+)]
 pub async fn get_current_user(
     auth: AuthExtractor,
 ) -> ActixResult<HttpResponse> {
+    HttpResponseBuilder::ok(auth.user_info)
+}
+
+#[utoipa::path(
+    put,
+    path = "/auth/profile",
+    tag = "auth",
+    summary = "更新用户资料",
+    description = "更新当前用户的个人资料",
+    security(
+        ("bearer_auth" = [])
+    ),
+    request_body = UpdateUserProfileRequest,
+    responses(
+        (status = 200, description = "资料更新成功", body = UserInfo),
+        (status = 401, description = "未认证", body = ApiError),
+        (status = 400, description = "参数错误", body = ApiError)
+    )
+)]
+pub async fn update_user_profile(
+    auth: AuthExtractor,
+    request: web::Json<UpdateUserProfileRequest>,
+) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
-    let db = db_manager.get_connection();
+    let service = AuthService::new(
+        db_manager.get_connection().clone(),
+        "default_jwt_secret".to_string(),
+        None,
+        None,
+    );
 
-    // 从数据库获取最新的用户信息
-    let user = crate::db::entities::user::Entity::find_by_id(auth.user_id)
-        .one(db)
-        .await
-        .map_err(|e| AiStudioError::internal(format!("数据库错误: {}", e)))?
-        .ok_or_else(|| AiStudioError::not_found("用户"))?;
+    let updated_user = service.update_user_profile(auth.user_info.id, request.into_inner()).await?;
 
-    let user_info = crate::services::auth::UserInfo {
-        id: user.id,
-        tenant_id: user.tenant_id,
-        username: user.username,
-        email: user.email,
-        display_name: user.display_name,
-        avatar_url: user.avatar_url,
-        role: user.role.to_string(),
-        permissions: serde_json::from_value(user.permissions).unwrap_or_default(),
-        last_login_at: user.last_login_at.map(|dt| dt.into()),
-        created_at: user.created_at.into(),
-    };
-
-    HttpResponseBuilder::ok(user_info)
+    HttpResponseBuilder::ok(updated_user)
 }
 
-pub async fn verify_email(
-    _query: web::Query<EmailVerificationQuery>,
-) -> ActixResult<HttpResponse> {
-    // 这里应该实现邮箱验证逻辑
-    // 为了简化，这里只返回成功响应
-    HttpResponseBuilder::no_content()
-}
-
-pub async fn resend_verification_email(
-    _request: web::Json<ResendVerificationRequest>,
-) -> ActixResult<HttpResponse> {
-    // 这里应该实现重新发送验证邮件的逻辑
-    // 为了简化，这里只返回成功响应
-    HttpResponseBuilder::no_content()
-}
-
-pub fn auth_routes(cfg: &mut web::ServiceConfig) {
+// 配置认证路由
+pub fn configure_auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/auth")
             .route("/login", web::post().to(login))
+            .route("/logout", web::post().to(logout))
             .route("/refresh", web::post().to(refresh_token))
             .route("/register", web::post().to(register))
-            .route("/logout", web::post().to(logout))
             .route("/password-reset", web::post().to(request_password_reset))
-            // .route("/password-reset/confirm", web::post().to(confirm_password_reset))
+            .route("/password-reset/confirm", web::post().to(confirm_password_reset))
             .route("/me", web::get().to(get_current_user))
-            .route("/verify-email", web::post().to(verify_email))
-            .route("/resend-verification", web::post().to(resend_verification_email))
+            .route("/profile", web::put().to(update_user_profile))
     );
+}
+
+// 临时类型定义，应该移到适当的模块中
+#[derive(serde::Deserialize, utoipa::ToSchema)]
+pub struct UpdateUserProfileRequest {
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
 }

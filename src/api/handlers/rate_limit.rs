@@ -31,7 +31,18 @@ use crate::errors::AiStudioError;
 // pub struct RateLimitApiDoc;
 
 /// 获取限流统计
-pub async fn get_rate_limit_stats(
+#[utoipa::path(
+    get,
+    path = "/rate-limit/stats",
+    tag = "rate-limit",
+    summary = "获取限流统计",
+    description = "获取当前用户或 API 密钥的限流统计信息",
+    responses(
+        (status = 200, description = "限流统计信息", body = Vec<RateLimitStat>),
+        (status = 401, description = "未认证", body = ApiError)
+    )
+)]
+pub async fn get_rate_limits(
     user: Option<web::ReqData<AuthenticatedUser>>,
     api_key: Option<web::ReqData<ApiKeyInfo>>,
     tenant_info: Option<web::ReqData<TenantInfo>>,
@@ -103,6 +114,19 @@ pub async fn get_rate_limit_stats(
 }
 
 /// 检查限流状态
+#[utoipa::path(
+    post,
+    path = "/rate-limit/check",
+    tag = "rate-limit",
+    summary = "检查限流状态",
+    description = "检查指定操作是否受到限流限制",
+    request_body = RateLimitCheckRequest,
+    responses(
+        (status = 200, description = "限流检查结果", body = RateLimitResult),
+        (status = 429, description = "请求过于频繁", body = ApiError),
+        (status = 401, description = "未认证", body = ApiError)
+    )
+)]
 pub async fn check_rate_limit(
     request: web::Json<RateLimitCheckRequest>,
     user: Option<web::ReqData<AuthenticatedUser>>,

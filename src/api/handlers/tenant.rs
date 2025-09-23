@@ -42,6 +42,19 @@ use crate::db::DatabaseManager;
 // pub struct TenantApiDoc;
 
 /// 创建租户
+#[utoipa::path(
+    post,
+    path = "/tenants",
+    tag = "tenant",
+    summary = "创建租户",
+    description = "创建新的租户",
+    request_body = CreateTenantRequest,
+    responses(
+        (status = 201, description = "租户创建成功", body = TenantResponse),
+        (status = 400, description = "请求参数错误", body = ApiError),
+        (status = 409, description = "租户已存在", body = ApiError)
+    )
+)]
 pub async fn create_tenant(
     _admin: AdminExtractor,
     request: web::Json<CreateTenantRequest>,
@@ -55,6 +68,20 @@ pub async fn create_tenant(
 }
 
 /// 获取租户详情
+#[utoipa::path(
+    get,
+    path = "/tenants/{tenant_id}",
+    tag = "tenant",
+    summary = "获取租户详情",
+    description = "根据 ID 获取租户详细信息",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    responses(
+        (status = 200, description = "租户信息", body = TenantResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn get_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -69,6 +96,20 @@ pub async fn get_tenant(
 }
 
 /// 获取租户列表
+#[utoipa::path(
+    get,
+    path = "/tenants",
+    tag = "tenant",
+    summary = "获取租户列表",
+    description = "获取分页的租户列表",
+    params(
+        PaginationQuery,
+        TenantListQuery
+    ),
+    responses(
+        (status = 200, description = "租户列表", body = PaginatedResponse<TenantResponse>)
+    )
+)]
 pub async fn list_tenants(
     _admin: AdminExtractor,
     query: web::Query<TenantListQuery>,
@@ -104,6 +145,21 @@ pub async fn list_tenants(
 }
 
 /// 更新租户
+#[utoipa::path(
+    put,
+    path = "/tenants/{tenant_id}",
+    tag = "tenant",
+    summary = "更新租户",
+    description = "更新租户信息",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    request_body = UpdateTenantRequest,
+    responses(
+        (status = 200, description = "租户更新成功", body = TenantResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn update_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -119,6 +175,20 @@ pub async fn update_tenant(
 }
 
 /// 删除租户
+#[utoipa::path(
+    delete,
+    path = "/tenants/{tenant_id}",
+    tag = "tenant",
+    summary = "删除租户",
+    description = "删除指定租户",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    responses(
+        (status = 204, description = "租户删除成功"),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn delete_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -133,8 +203,23 @@ pub async fn delete_tenant(
 }
 
 /// 获取租户统计
+#[utoipa::path(
+    get,
+    path = "/tenants/{tenant_id}/stats",
+    tag = "tenant",
+    summary = "获取租户统计",
+    description = "获取租户使用统计信息",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    responses(
+        (status = 200, description = "租户统计信息", body = TenantStatsResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn get_tenant_stats(
     _admin: AdminExtractor,
+    path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
     let service = TenantService::new(db_manager.get_connection().clone());
@@ -145,6 +230,21 @@ pub async fn get_tenant_stats(
 }
 
 /// 暂停租户
+#[utoipa::path(
+    post,
+    path = "/tenants/{tenant_id}/suspend",
+    tag = "tenant",
+    summary = "暂停租户",
+    description = "暂停指定租户",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    request_body = SuspendTenantRequest,
+    responses(
+        (status = 200, description = "租户暂停成功", body = TenantResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn suspend_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,
@@ -160,6 +260,20 @@ pub async fn suspend_tenant(
 }
 
 /// 激活租户
+#[utoipa::path(
+    post,
+    path = "/tenants/{tenant_id}/activate",
+    tag = "tenant",
+    summary = "激活租户",
+    description = "激活指定租户",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID")
+    ),
+    responses(
+        (status = 200, description = "租户激活成功", body = TenantResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
 pub async fn activate_tenant(
     _admin: AdminExtractor,
     path: web::Path<Uuid>,

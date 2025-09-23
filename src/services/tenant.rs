@@ -12,6 +12,7 @@ use crate::errors::AiStudioError;
 use crate::db::entities::{Tenant, tenant, user};
 use crate::db::DatabaseManager;
 use crate::api::{PaginationQuery, PaginatedResponse, PaginationInfo};
+use sea_orm::DatabaseConnection;
 
 // 租户配额检查器
 pub struct TenantQuotaChecker;
@@ -136,13 +137,19 @@ pub struct TenantInfo {
 
 /// 租户服务
 pub struct TenantService {
-    db: DatabaseManager,
+    db: DatabaseConnection,
 }
 
 impl TenantService {
     /// 创建新的租户服务实例
     pub fn new(db: DatabaseConnection) -> Self {
         Self { db }
+    }
+
+    /// 获取租户
+    #[instrument(skip(self))]
+    pub async fn get_tenant(&self, tenant_id: Uuid) -> Result<TenantResponse, AiStudioError> {
+        self.get_tenant_by_id(tenant_id).await
     }
 
     /// 创建租户

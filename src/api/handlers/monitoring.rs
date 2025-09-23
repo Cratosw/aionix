@@ -43,7 +43,18 @@ use crate::errors::AiStudioError;
 // pub struct MonitoringApiDoc;
 
 /// 获取系统健康状态
-pub async fn get_system_health(
+#[utoipa::path(
+    get,
+    path = "/monitoring/system/health",
+    tag = "monitoring",
+    summary = "获取系统健康状态",
+    description = "获取系统整体健康状态和各组件状态",
+    responses(
+        (status = 200, description = "系统健康状态", body = SystemHealth),
+        (status = 503, description = "系统不健康", body = SystemHealth)
+    )
+)]
+pub async fn get_system_metrics(
     _admin: AdminExtractor,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()
