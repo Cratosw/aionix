@@ -11,6 +11,7 @@ use crate::services::auth::{
 };
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
+use sea_orm::EntityTrait;
 
 /// 认证 API 文档
 // #[derive(OpenApi)]
@@ -156,7 +157,8 @@ pub async fn get_current_user(
     // 从数据库获取最新的用户信息
     let user = crate::db::entities::user::Entity::find_by_id(auth.user_id)
         .one(db)
-        .await?
+        .await
+        .map_err(|e| AiStudioError::internal(format!("数据库错误: {}", e)))?
         .ok_or_else(|| AiStudioError::not_found("用户"))?;
 
     let user_info = crate::services::auth::UserInfo {
@@ -166,7 +168,7 @@ pub async fn get_current_user(
         email: user.email,
         display_name: user.display_name,
         avatar_url: user.avatar_url,
-        role: user.role,
+        role: user.role.to_string(),
         permissions: serde_json::from_value(user.permissions).unwrap_or_default(),
         last_login_at: user.last_login_at.map(|dt| dt.into()),
         created_at: user.created_at.into(),

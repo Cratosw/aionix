@@ -17,7 +17,7 @@ use crate::services::rate_limit::{
     RateLimitService, RateLimitPolicy, RateLimitKeyType, RateLimitPolicies, RateLimitConfig
 };
 use crate::errors::AiStudioError;
-use crate.api::responses::ErrorResponse;
+use crate::api::responses::ErrorResponse;
 
 /// 限流中间件
 pub struct RateLimitMiddleware {
@@ -188,7 +188,7 @@ where
                                 );
                             }
 
-                            return Ok(req.into_response(response));
+                            return Ok(req.into_response(response).map_into_right_body());
                         }
                     }
                 }
@@ -205,6 +205,7 @@ where
 }
 
 /// 组合限流中间件（支持多种限流策略）
+#[derive(Clone)]
 pub struct CompositeRateLimitMiddleware {
     /// 多个限流中间件
     pub middlewares: Vec<RateLimitMiddleware>,
@@ -298,7 +299,7 @@ where
                                         None,
                                         None,
                                     ));
-                                return Ok(req.into_response(response));
+                                return Ok(req.into_response(response).map_into_right_body());
                             }
                         }
                     }
@@ -326,21 +327,21 @@ fn build_actual_key_type(
             if let Some(tenant_info) = req.extensions().get::<TenantInfo>() {
                 Ok(RateLimitKeyType::Tenant(tenant_info.id))
             } else {
-                Err(AiStudioError::validation("缺少租户信息".to_string()))
+                Err(AiStudioError::validation("rate_limit", "缺少租户信息"))
             }
         }
         RateLimitKeyType::User(_) => {
             if let Some(user) = req.extensions().get::<AuthenticatedUser>() {
                 Ok(RateLimitKeyType::User(user.user_id))
             } else {
-                Err(AiStudioError::validation("缺少用户信息".to_string()))
+                Err(AiStudioError::validation("rate_limit", "缺少用户信息"))
             }
         }
         RateLimitKeyType::ApiKey(_) => {
             if let Some(api_key) = req.extensions().get::<ApiKeyInfo>() {
                 Ok(RateLimitKeyType::ApiKey(api_key.key_id))
             } else {
-                Err(AiStudioError::validation("缺少 API 密钥信息".to_string()))
+                Err(AiStudioError::validation("rate_limit", "缺少 API 密钥信息"))
             }
         }
         RateLimitKeyType::Ip(_) => {

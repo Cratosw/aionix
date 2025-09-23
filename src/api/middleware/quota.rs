@@ -112,27 +112,33 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
         let quota_checks = self.quota_checks.clone();
         let update_on_success = self.update_on_success;
 
         Box::pin(async move {
-            // 获取租户信息（避免持有借用到返回点）
-            let tenant_info_opt = req.extensions().get::<TenantInfo>().cloned();
-            if tenant_info_opt.is_none() {
-                let response = HttpResponse::BadRequest()
-                    .json(ErrorResponse::detailed_error::<()>(
-                        "TENANT_REQUIRED".to_string(),
-                        "配额检查需要租户信息".to_string(),
-                        None,
-                        None,
-                    ));
-                return Ok(req.into_response(response));
-            }
-            let tenant_info = tenant_info_opt.unwrap();
+            let (req, tenant_id) = {
+                let req = req;
+                let tenant_info_opt = req.extensions().get::<TenantInfo>().cloned();
+                match tenant_info_opt {
+                    Some(ti) => {
+                        // 先释放借用
+                        (req, ti.id)
+                    }
+                    None => {
+                        let response = HttpResponse::BadRequest()
+                            .json(ErrorResponse::detailed_error::<()>(
+                                "TENANT_REQUIRED".to_string(),
+                                "配额检查需要租户信息".to_string(),
+                                None,
+                                None,
+                            ));
+                        return Ok(req.into_response(response));
+                    }
+                }
+            };
 
-            // 检查配额
-            if let Err(e) = check_quotas(&tenant_info, &quota_checks).await {
+            if let Err(e) = check_quotas(&TenantInfo { id: tenant_id, slug: String::new(), name: String::new(), status: crate::db::entities::tenant::TenantStatus::Active, context: crate::db::migrations::tenant_filter::TenantContext::admin() }, &quota_checks).await {
                 let response = match e.status_code() {
                     429 => HttpResponse::TooManyRequests().json(ErrorResponse::detailed_error::<()>(
                         e.error_code().to_string(),
@@ -150,10 +156,9 @@ where
                 return Ok(req.into_response(response));
             }
 
-            // 存储配额检查信息，用于请求成功后更新
             if update_on_success {
                 req.extensions_mut().insert(QuotaUpdateInfo {
-                    tenant_id: tenant_info.id,
+                    tenant_id,
                     quota_checks: quota_checks.clone(),
                 });
             }
@@ -202,10 +207,11 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
 
+        let inner = self.service.clone();
         Box::pin(async move {
             let quota_update_info = req.extensions().get::<QuotaUpdateInfo>().cloned();
-            
-            let res = self.service.clone().call(req).await?;
+
+            let res = inner.call(req).await?;
 
             // 如果请求成功且有配额更新信息，则更新配额
             if res.status().is_success() {
@@ -282,11 +288,8 @@ where
         let check_interval = self.check_interval;
 
         Box::pin(async move {
-            // 获取租户信息
-            if let Some(tenant_info) = req.extensions().get::<TenantInfo>() {
-                let tenant_id = tenant_info.id;
-                
-                // 异步检查是否需要重置配额
+            let tenant_id_opt = req.extensions().get::<TenantInfo>().map(|ti| ti.id);
+            if let Some(tenant_id) = tenant_id_opt {
                 tokio::spawn(async move {
                     if let Err(e) = check_and_reset_quotas(tenant_id).await {
                         error!("检查和重置配额失败: {}", e);
