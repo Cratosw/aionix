@@ -87,7 +87,7 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         std_ready(Ok(QuotaCheckMiddlewareService {
-            service,
+            service: Rc::new(service),
             quota_checks: self.quota_checks.clone(),
             update_on_success: self.update_on_success,
         }))
@@ -95,7 +95,7 @@ where
 }
 
 pub struct QuotaCheckMiddlewareService<S> {
-    service: S,
+    service: Rc<S>,
     quota_checks: Vec<(QuotaType, u64)>,
     update_on_success: bool,
 }
@@ -115,6 +115,7 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let quota_checks = self.quota_checks.clone();
         let update_on_success = self.update_on_success;
+        let service = self.service.clone();
 
         Box::pin(async move {
             let (req, tenant_id) = {
@@ -163,7 +164,7 @@ where
                 });
             }
 
-            let fut = self.service.clone().call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -261,14 +262,14 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         std_ready(Ok(QuotaResetMiddlewareService {
-            service,
+            service: Rc::new(service),
             check_interval: self.check_interval,
         }))
     }
 }
 
 pub struct QuotaResetMiddlewareService<S> {
-    service: S,
+    service: Rc<S>,
     check_interval: u64,
 }
 
@@ -286,6 +287,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let check_interval = self.check_interval;
+        let service = self.service.clone();
 
         Box::pin(async move {
             let tenant_id_opt = req.extensions().get::<TenantInfo>().map(|ti| ti.id);
@@ -297,7 +299,7 @@ where
                 });
             }
 
-            let fut = self.service.clone().call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }

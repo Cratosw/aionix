@@ -4,6 +4,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse, Result as ActixResult,
+    web::ServiceConfig,
 };
 use futures::future::{LocalBoxFuture, Ready, ready};
 use std::future::{ready as std_ready, Ready as StdReady};
@@ -20,6 +21,7 @@ use crate::errors::AiStudioError;
 use crate::api::responses::ErrorResponse;
 
 /// 限流中间件
+#[derive(Clone)]
 pub struct RateLimitMiddleware {
     /// 限流策略
     pub policies: Vec<RateLimitPolicy>,
@@ -93,11 +95,11 @@ impl RateLimitMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for RateLimitMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<actix_web::body::EitherBody<B>>;
     type Error = Error;
     type Transform = RateLimitMiddlewareService<S>;
     type InitError = ();
@@ -105,7 +107,7 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         std_ready(Ok(RateLimitMiddlewareService {
-            service,
+            service: Rc::new(service),
             policies: self.policies.clone(),
             key_type: self.key_type.clone(),
             enabled: self.enabled,
@@ -114,7 +116,7 @@ where
 }
 
 pub struct RateLimitMiddlewareService<S> {
-    service: S,
+    service: Rc<S>,
     policies: Vec<RateLimitPolicy>,
     key_type: RateLimitKeyType,
     enabled: bool,
@@ -122,11 +124,11 @@ pub struct RateLimitMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for RateLimitMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<actix_web::body::EitherBody<B>>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -137,10 +139,12 @@ where
         let key_type = self.key_type.clone();
         let enabled = self.enabled;
 
+        let service = self.service.clone();
+        
         Box::pin(async move {
             if !enabled {
-                let fut = self.service.call(req);
-                return fut.await;
+                let fut = service.call(req);
+                return fut.await.map(|res| res.map_into_left_body());
             }
 
             // 构建实际的键类型
@@ -148,8 +152,8 @@ where
                 Ok(key) => key,
                 Err(e) => {
                     debug!("构建限流键失败: {}, 跳过限流检查", e);
-                    let fut = self.service.call(req);
-                    return fut.await;
+                    let fut = service.call(req);
+                    return fut.await.map(|res| res.map_into_left_body());
                 }
             };
 
@@ -198,8 +202,8 @@ where
                 }
             }
 
-            let fut = self.service.call(req);
-            fut.await
+            let fut = service.call(req);
+            fut.await.map(|res| res.map_into_left_body())
         })
     }
 }
@@ -238,11 +242,11 @@ impl CompositeRateLimitMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for CompositeRateLimitMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<actix_web::body::EitherBody<B>>;
     type Error = Error;
     type Transform = CompositeRateLimitMiddlewareService<S>;
     type InitError = ();
@@ -250,24 +254,24 @@ where
 
     fn new_transform(&self, service: S) -> Self::Future {
         std_ready(Ok(CompositeRateLimitMiddlewareService {
-            service,
+            service: Rc::new(service),
             middlewares: self.middlewares.clone(),
         }))
     }
 }
 
 pub struct CompositeRateLimitMiddlewareService<S> {
-    service: S,
+    service: Rc<S>,
     middlewares: Vec<RateLimitMiddleware>,
 }
 
 impl<S, B> Service<ServiceRequest> for CompositeRateLimitMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
     S::Future: 'static,
     B: 'static,
 {
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<actix_web::body::EitherBody<B>>;
     type Error = Error;
     type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -275,6 +279,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let middlewares = self.middlewares.clone();
+        let service = self.service.clone();
 
         Box::pin(async move {
             // 依次检查所有限流策略
@@ -309,8 +314,8 @@ where
                 }
             }
 
-            let fut = self.service.call(req);
-            fut.await
+            let fut = service.call(req);
+            fut.await.map(|res| res.map_into_left_body())
         })
     }
 }
@@ -380,55 +385,41 @@ async fn check_rate_limits(
 pub struct RateLimitMiddlewareConfig;
 
 impl RateLimitMiddlewareConfig {
-    /// 配置标准限流中间件
-    pub fn standard() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(CompositeRateLimitMiddleware::standard());
-        }
+    /// 获取标准限流中间件
+    pub fn standard() -> CompositeRateLimitMiddleware {
+        CompositeRateLimitMiddleware::standard()
     }
 
-    /// 配置轻量级限流中间件
-    pub fn lightweight() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(CompositeRateLimitMiddleware::lightweight());
-        }
+    /// 获取轻量级限流中间件
+    pub fn lightweight() -> CompositeRateLimitMiddleware {
+        CompositeRateLimitMiddleware::lightweight()
     }
 
-    /// 配置 API 密钥限流中间件
-    pub fn api_key_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(RateLimitMiddleware::default_api_key());
-        }
+    /// 获取 API 密钥限流中间件
+    pub fn api_key_only() -> RateLimitMiddleware {
+        RateLimitMiddleware::default_api_key()
     }
 
-    /// 配置租户限流中间件
-    pub fn tenant_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(RateLimitMiddleware::default_tenant());
-        }
+    /// 获取租户限流中间件
+    pub fn tenant_only() -> RateLimitMiddleware {
+        RateLimitMiddleware::default_tenant()
     }
 
-    /// 配置 IP 限流中间件
-    pub fn ip_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(RateLimitMiddleware::default_ip());
-        }
+    /// 获取 IP 限流中间件
+    pub fn ip_only() -> RateLimitMiddleware {
+        RateLimitMiddleware::default_ip()
     }
 
-    /// 配置全局限流中间件
-    pub fn global_only() -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        |cfg| {
-            cfg.wrap(RateLimitMiddleware::default_global());
-        }
+    /// 获取全局限流中间件
+    pub fn global_only() -> RateLimitMiddleware {
+        RateLimitMiddleware::default_global()
     }
 
-    /// 配置自定义限流中间件
+    /// 获取自定义限流中间件
     pub fn custom(
         policies: Vec<RateLimitPolicy>,
         key_type: RateLimitKeyType,
-    ) -> impl Fn(&mut actix_web::dev::ServiceConfig) {
-        move |cfg| {
-            cfg.wrap(RateLimitMiddleware::new(policies.clone(), key_type.clone()));
-        }
+    ) -> RateLimitMiddleware {
+        RateLimitMiddleware::new(policies, key_type)
     }
 }

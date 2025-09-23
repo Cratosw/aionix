@@ -475,6 +475,7 @@ impl BackupManager {
                     WHERE updated_at > '{}'
                 ) TO STDOUT;
                 "#,
+                since.format("%Y-%m-%d %H:%M:%S"),
                 since.format("%Y-%m-%d %H:%M:%S")
             )
         };
