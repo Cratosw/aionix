@@ -4,7 +4,7 @@
 use crate::errors::AiStudioError;
 use sea_orm::{
     sea_query::{Expr, SimpleExpr},
-    ColumnTrait, EntityTrait, QueryFilter, Select,
+    ColumnTrait, EntityTrait, QueryFilter, Select, ConnectionTrait,
 };
 use uuid::Uuid;
 use std::marker::PhantomData;
@@ -113,7 +113,10 @@ where
     }
 
     /// 根据 ID 查找并添加租户过滤
-    pub fn find_by_id(&self, id: Uuid) -> Select<E> {
+    pub fn find_by_id(&self, id: Uuid) -> Select<E>
+    where
+        <<E as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType: From<Uuid>,
+    {
         let query = E::find_by_id(id);
         if self.context.is_admin {
             query
@@ -131,15 +134,13 @@ where
     where
         E::Column: ColumnTrait,
         C: sea_orm::ConnectionTrait,
+        <<E as sea_orm::EntityTrait>::PrimaryKey as sea_orm::PrimaryKeyTrait>::ValueType: From<Uuid>,
     {
         if self.context.is_admin {
             return Ok(true);
         }
 
-        let count = self
-            .find_by_id(entity_id)
-            .count(db)
-            .await?;
+        let count = self.find_by_id(entity_id).count(db).await?;
 
         Ok(count > 0)
     }
@@ -158,7 +159,7 @@ impl TenantFilterMiddleware {
         // 优先从请求头获取租户 ID
         if let Some(tenant_id_str) = tenant_header {
             let tenant_id = Uuid::parse_str(tenant_id_str)
-                .map_err(|_| AiStudioError::validation("无效的租户 ID 格式"))?;
+                .map_err(|_| AiStudioError::validation("tenant_id", "无效的租户 ID 格式"))?;
             
             // 这里应该从数据库验证租户是否存在和有效
             // 为了简化，这里直接返回

@@ -2,7 +2,7 @@
 // 包含所有迁移脚本和管理功能
 
 use crate::errors::AiStudioError;
-use sea_orm::{DatabaseConnection, Statement, ConnectionTrait};
+use sea_orm::{DatabaseConnection, Statement, ConnectionTrait, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{info, warn, error, instrument};

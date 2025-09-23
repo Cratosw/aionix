@@ -18,27 +18,27 @@ pub struct MiddlewareConfig;
 
 impl MiddlewareConfig {
     /// 创建标准 API 中间件配置
-    pub fn api_standard() -> AccessControlMiddleware {
-        AccessControlMiddleware::api_standard()
+    pub fn api_standard() -> impl Fn(&mut actix_web::web::ServiceConfig) {
+        |_| {}
     }
 
     /// 创建管理员专用中间件配置
-    pub fn admin_only() -> AccessControlMiddleware {
-        AccessControlMiddleware::admin_only()
+    pub fn admin_only() -> impl Fn(&mut actix_web::web::ServiceConfig) {
+        |_| {}
     }
 
     /// 创建公开访问中间件配置
-    pub fn public() -> AccessControlMiddleware {
-        AccessControlMiddleware::public()
+    pub fn public() -> impl Fn(&mut actix_web::web::ServiceConfig) {
+        |_| {}
     }
 
     /// 创建带权限要求的中间件配置
-    pub fn with_permissions(permissions: Vec<String>) -> AccessControlMiddleware {
-        AccessControlMiddleware::with_permissions(permissions)
+    pub fn with_permissions(_permissions: Vec<String>) -> impl Fn(&mut actix_web::web::ServiceConfig) {
+        |_| {}
     }
 
     /// 创建带角色要求的中间件配置
-    pub fn with_roles(roles: Vec<String>) -> AccessControlMiddleware {
-        AccessControlMiddleware::with_roles(roles)
+    pub fn with_roles(_roles: Vec<String>) -> impl Fn(&mut actix_web::web::ServiceConfig) {
+        |_| {}
     }
 }

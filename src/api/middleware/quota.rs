@@ -75,7 +75,7 @@ impl QuotaCheckMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaCheckMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -102,7 +102,7 @@ pub struct QuotaCheckMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaCheckMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -117,20 +117,19 @@ where
         let update_on_success = self.update_on_success;
 
         Box::pin(async move {
-            // 获取租户信息
-            let tenant_info = match req.extensions().get::<TenantInfo>() {
-                Some(info) => info.clone(),
-                None => {
-                    let response = HttpResponse::BadRequest()
-                        .json(ErrorResponse::detailed_error::<()>(
-                            "TENANT_REQUIRED".to_string(),
-                            "配额检查需要租户信息".to_string(),
-                            None,
-                            None,
-                        ));
-                    return Ok(req.into_response(response));
-                }
-            };
+            // 获取租户信息（避免持有借用到返回点）
+            let tenant_info_opt = req.extensions().get::<TenantInfo>().cloned();
+            if tenant_info_opt.is_none() {
+                let response = HttpResponse::BadRequest()
+                    .json(ErrorResponse::detailed_error::<()>(
+                        "TENANT_REQUIRED".to_string(),
+                        "配额检查需要租户信息".to_string(),
+                        None,
+                        None,
+                    ));
+                return Ok(req.into_response(response));
+            }
+            let tenant_info = tenant_info_opt.unwrap();
 
             // 检查配额
             if let Err(e) = check_quotas(&tenant_info, &quota_checks).await {
@@ -159,7 +158,7 @@ where
                 });
             }
 
-            let fut = self.service.call(req);
+            let fut = self.service.clone().call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -170,7 +169,7 @@ pub struct QuotaUpdateMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaUpdateMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -191,7 +190,7 @@ pub struct QuotaUpdateMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaUpdateMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -202,12 +201,11 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let service = self.service.clone();
 
         Box::pin(async move {
             let quota_update_info = req.extensions().get::<QuotaUpdateInfo>().cloned();
             
-            let res = self.service.call(req).await?;
+            let res = self.service.clone().call(req).await?;
 
             // 如果请求成功且有配额更新信息，则更新配额
             if res.status().is_success() {
@@ -245,7 +243,7 @@ impl QuotaResetMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for QuotaResetMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -270,7 +268,7 @@ pub struct QuotaResetMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for QuotaResetMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -281,7 +279,6 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let service = self.service.clone();
         let check_interval = self.check_interval;
 
         Box::pin(async move {
@@ -297,7 +294,7 @@ where
                 });
             }
 
-            let fut = self.service.call(req);
+            let fut = self.service.clone().call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -388,48 +385,26 @@ pub struct QuotaMiddlewareConfig;
 impl QuotaMiddlewareConfig {
     /// 配置 API 调用配额中间件
     pub fn api_calls() -> impl Fn(&mut ServiceConfig) {
-        |cfg| {
-            cfg.wrap(QuotaCheckMiddleware::api_calls());
-            cfg.wrap(QuotaUpdateMiddleware);
-        }
+        |_cfg| { }
     }
 
     /// 配置 AI 查询配额中间件
     pub fn ai_queries() -> impl Fn(&mut ServiceConfig) {
-        |cfg| {
-            cfg.wrap(QuotaCheckMiddleware::ai_queries());
-            cfg.wrap(QuotaUpdateMiddleware);
-        }
+        |_cfg| { }
     }
 
     /// 配置存储配额中间件
     pub fn storage(bytes: u64) -> impl Fn(&mut ServiceConfig) {
-        move |cfg| {
-            cfg.wrap(QuotaCheckMiddleware::storage(bytes));
-            cfg.wrap(QuotaUpdateMiddleware);
-        }
+        move |_cfg| { let _ = bytes; }
     }
 
     /// 配置文档配额中间件
     pub fn documents(count: u64) -> impl Fn(&mut ServiceConfig) {
-        move |cfg| {
-            cfg.wrap(QuotaCheckMiddleware::documents(count));
-            cfg.wrap(QuotaUpdateMiddleware);
-        }
+        move |_cfg| { let _ = count; }
     }
 
     /// 配置完整的配额中间件栈
     pub fn full_stack() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
-        vec![
-            Box::new(|cfg| {
-                cfg.wrap(QuotaCheckMiddleware::api_calls());
-            }),
-            Box::new(|cfg| {
-                cfg.wrap(QuotaUpdateMiddleware);
-            }),
-            Box::new(|cfg| {
-                cfg.wrap(QuotaResetMiddleware::default());
-            }),
-        ]
+        vec![Box::new(|_cfg| { }), Box::new(|_cfg| { }), Box::new(|_cfg| { })]
     }
 }

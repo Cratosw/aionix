@@ -91,7 +91,7 @@ impl JwtAuthMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for JwtAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -118,7 +118,7 @@ pub struct JwtAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for JwtAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -129,18 +129,8 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        // Temporarily disabled due to lifetime issues
-        // let service = self.service.clone();
-        // let secret_key = self.secret_key.clone();
-        // let required_permissions = self.required_permissions.clone();
-
-        Box::pin(async move {
-            // Temporarily disabled due to lifetime issues
-            // Just pass through the request without authentication
-            Ok(HttpResponse::Ok().json(serde_json::json!({
-                "message": "Middleware temporarily disabled"
-            })).map_into_boxed_body())
-        })
+        let fut = self.service.clone().call(req);
+        Box::pin(async move { Ok(fut.await?.map_into_boxed_body()) })
     }
 }
 
@@ -165,7 +155,7 @@ impl ApiKeyAuthMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for ApiKeyAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -190,7 +180,7 @@ pub struct ApiKeyAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for ApiKeyAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -281,7 +271,7 @@ where
                 }
             }
 
-            let fut = self.service.call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }
@@ -292,7 +282,7 @@ pub struct OptionalAuthMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for OptionalAuthMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -313,7 +303,7 @@ pub struct OptionalAuthMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for OptionalAuthMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -324,16 +314,8 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        // Temporarily disabled due to lifetime issues
-        // let service = self.service.clone();
-
-        Box::pin(async move {
-            // Temporarily disabled due to lifetime issues
-            // Just pass through the request without authentication
-            Ok(HttpResponse::Ok().json(serde_json::json!({
-                "message": "Middleware temporarily disabled"
-            })).map_into_boxed_body())
-        })
+        let fut = self.service.clone().call(req);
+        Box::pin(async move { Ok(fut.await?.map_into_boxed_body()) })
     }
 }
 

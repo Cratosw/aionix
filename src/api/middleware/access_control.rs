@@ -159,7 +159,7 @@ impl AccessControlMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for AccessControlMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -184,7 +184,7 @@ pub struct AccessControlMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for AccessControlMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -252,7 +252,7 @@ where
             // 将访问控制上下文存储到请求扩展中
             req.extensions_mut().insert(context);
 
-            let fut = self.service.call(req);
+            let fut = service.call(req);
             Ok(fut.await?.map_into_boxed_body())
         })
     }

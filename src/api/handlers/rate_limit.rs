@@ -118,25 +118,25 @@ pub async fn check_rate_limit(
             if let Some(user_info) = user {
                 RateLimitKeyType::User(user_info.user_id)
             } else {
-                return Err(AiStudioError::validation("需要用户认证".to_string()).into());
+                return Err(AiStudioError::validation("auth", "需要用户认证").into());
             }
         }
         "api_key" => {
             if let Some(api_key_info) = api_key {
                 RateLimitKeyType::ApiKey(api_key_info.key_id)
             } else {
-                return Err(AiStudioError::validation("需要 API 密钥认证".to_string()).into());
+                return Err(AiStudioError::validation("auth", "需要 API 密钥认证").into());
             }
         }
         "tenant" => {
             if let Some(tenant_info) = tenant_info {
                 RateLimitKeyType::Tenant(tenant_info.id)
             } else {
-                return Err(AiStudioError::validation("需要租户信息".to_string()).into());
+                return Err(AiStudioError::validation("tenant", "需要租户信息").into());
             }
         }
         _ => {
-            return Err(AiStudioError::validation("无效的键类型".to_string()).into());
+            return Err(AiStudioError::validation("key_type", "无效的键类型").into());
         }
     };
 
@@ -166,7 +166,7 @@ pub async fn reset_rate_limit(
         "ip" => RateLimitKeyType::Ip(req.ip_address.unwrap_or_default()),
         "global" => RateLimitKeyType::Global,
         _ => {
-            return Err(AiStudioError::validation("无效的键类型".to_string()).into());
+            return Err(AiStudioError::validation("key_type", "无效的键类型").into());
         }
     };
 

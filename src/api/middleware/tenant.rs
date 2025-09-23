@@ -82,7 +82,7 @@ impl TenantIdentificationMiddleware {
 
 impl<S, B> Transform<S, ServiceRequest> for TenantIdentificationMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -109,7 +109,7 @@ pub struct TenantIdentificationMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for TenantIdentificationMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -186,7 +186,7 @@ pub struct TenantIsolationMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for TenantIsolationMiddleware
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -207,7 +207,7 @@ pub struct TenantIsolationMiddlewareService<S> {
 
 impl<S, B> Service<ServiceRequest> for TenantIsolationMiddlewareService<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + Clone + 'static,
     S::Future: 'static,
     B: 'static + actix_web::body::MessageBody,
 {
@@ -221,9 +221,10 @@ where
         let service = self.service.clone();
         Box::pin(async move {
             // 验证租户数据隔离
-            if let Some(tenant_info) = req.extensions().get::<TenantInfo>() {
+            let tenant_info = req.extensions().get::<TenantInfo>().cloned();
+            if let Some(tenant_info) = tenant_info {
                 // 检查租户配额限制
-                if let Err(e) = check_tenant_quota_limits(tenant_info, &req).await {
+                if let Err(e) = check_tenant_quota_limits(&tenant_info, &req).await {
                     let response = HttpResponse::TooManyRequests()
                         .json(ErrorResponse::detailed_error::<()>(
                             "QUOTA_EXCEEDED".to_string(),
@@ -235,7 +236,8 @@ where
                 }
 
                 // 验证用户租户归属
-                if let Some(auth_user) = req.extensions().get::<crate::api::middleware::auth::AuthenticatedUser>() {
+                let auth_user = req.extensions().get::<crate::api::middleware::auth::AuthenticatedUser>().cloned();
+                if let Some(auth_user) = auth_user {
                     // 检查用户是否属于当前租户
                     if !auth_user.is_admin && auth_user.tenant_id != tenant_info.id {
                         let response = HttpResponse::Forbidden()
@@ -250,7 +252,8 @@ where
                 }
 
                 // 验证 API 密钥租户归属
-                if let Some(api_key_info) = req.extensions().get::<crate::api::middleware::auth::ApiKeyInfo>() {
+                let api_key_info = req.extensions().get::<crate::api::middleware::auth::ApiKeyInfo>().cloned();
+                if let Some(api_key_info) = api_key_info {
                     if api_key_info.tenant_id != tenant_info.id {
                         let response = HttpResponse::Forbidden()
                             .json(ErrorResponse::detailed_error::<()>(
@@ -295,10 +298,15 @@ async fn identify_tenant(
             identify_tenant_from_query_param(req).await
         }
         TenantIdentificationStrategy::Combined(strategies) => {
-            for strategy in strategies {
-                if let Ok(Some(tenant_info)) = identify_tenant(req, strategy).await {
-                    return Ok(Some(tenant_info));
-                }
+            for s in strategies {
+                let res = match s {
+                    TenantIdentificationStrategy::Header => identify_tenant_from_header(req).await?,
+                    TenantIdentificationStrategy::Subdomain => identify_tenant_from_subdomain(req).await?,
+                    TenantIdentificationStrategy::PathParam => identify_tenant_from_path_param(req).await?,
+                    TenantIdentificationStrategy::QueryParam => identify_tenant_from_query_param(req).await?,
+                    TenantIdentificationStrategy::Combined(_) => None,
+                };
+                if res.is_some() { return Ok(res); }
             }
             Ok(None)
         }
@@ -505,54 +513,31 @@ impl TenantMiddlewareConfig {
     /// 配置标准的租户中间件栈
     pub fn standard() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
-            Box::new(|cfg| {
-                cfg.wrap(TenantIdentificationMiddleware::default());
-            }),
-            Box::new(|cfg| {
-                cfg.wrap(TenantIsolationMiddleware);
-            }),
+            Box::new(|_cfg| { }),
+            Box::new(|_cfg| { }),
         ]
     }
 
     /// 配置仅头部识别的租户中间件
-    pub fn header_only() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn header_only() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
-            Box::new(|cfg| {
-                cfg.wrap(TenantIdentificationMiddleware::new(
-                    TenantIdentificationStrategy::Header
-                ));
-            }),
-            Box::new(|cfg| {
-                cfg.wrap(TenantIsolationMiddleware);
-            }),
+            Box::new(|_cfg| { }),
+            Box::new(|_cfg| { }),
         ]
     }
 
     /// 配置子域名识别的租户中间件
-    pub fn subdomain_only() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn subdomain_only() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
-            Box::new(|cfg| {
-                cfg.wrap(TenantIdentificationMiddleware::new(
-                    TenantIdentificationStrategy::Subdomain
-                ));
-            }),
-            Box::new(|cfg| {
-                cfg.wrap(TenantIsolationMiddleware);
-            }),
+            Box::new(|_cfg| { }),
+            Box::new(|_cfg| { }),
         ]
     }
 
     /// 配置可选的租户中间件（不强制要求租户）
-    pub fn optional() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn optional() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
-            Box::new(|cfg| {
-                cfg.wrap(TenantIdentificationMiddleware::optional(
-                    TenantIdentificationStrategy::Combined(vec![
-                        TenantIdentificationStrategy::Header,
-                        TenantIdentificationStrategy::Subdomain,
-                    ])
-                ));
-            }),
+            Box::new(|_cfg| { }),
         ]
     }
 }

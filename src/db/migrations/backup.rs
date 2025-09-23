@@ -27,6 +27,7 @@ pub enum BackupType {
 
 /// 备份状态
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq)]
 pub enum BackupStatus {
     /// 进行中
     InProgress,
@@ -249,7 +250,7 @@ impl BackupManager {
         let backup_info = self.get_backup_info(options.backup_id).await?;
         
         if backup_info.status != BackupStatus::Completed {
-            return Err(AiStudioError::validation("只能恢复已完成的备份"));
+            return Err(AiStudioError::validation("backup_status", "只能恢复已完成的备份"));
         }
 
         if !backup_info.file_path.exists() {
