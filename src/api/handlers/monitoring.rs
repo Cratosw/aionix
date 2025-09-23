@@ -59,7 +59,7 @@ pub async fn get_system_health(
 pub async fn get_tenant_usage_stats(
     path: web::Path<Uuid>,
     query: web::Query<UsageStatsQuery>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let tenant_id = path.into_inner();
@@ -84,7 +84,7 @@ pub async fn get_tenant_usage_stats(
 pub async fn get_metric_trends(
     path: web::Path<(Uuid, String)>,
     query: web::Query<TrendsQuery>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let (tenant_id, metric_type_str) = path.into_inner();
@@ -144,8 +144,8 @@ pub async fn record_metric(
 /// 获取通知列表
 pub async fn get_notifications(
     path: web::Path<Uuid>,
-    query: web::Query<NotificationsQuery>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _query: web::Query<NotificationsQuery>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let tenant_id = path.into_inner();

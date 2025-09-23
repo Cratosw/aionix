@@ -37,7 +37,7 @@ use crate::errors::AiStudioError;
 /// 获取租户配额统计
 pub async fn get_quota_stats(
     path: web::Path<Uuid>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let tenant_id = path.into_inner();
@@ -60,7 +60,7 @@ pub async fn get_quota_stats(
 pub async fn check_quota(
     path: web::Path<(Uuid, String)>,
     query: web::Query<CheckQuotaQuery>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let (tenant_id, quota_type_str) = path.into_inner();

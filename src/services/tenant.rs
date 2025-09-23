@@ -1,19 +1,17 @@
-// 租户服务层
-// 处理租户相关的业务逻辑
+// 租户服务
+// 管理多租户相关功能
 
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait, PaginatorTrait, QueryOrder};
-use sea_orm::QuerySelect;
-use uuid::Uuid;
-use chrono::Utc;
-use chrono::Datelike;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+use chrono::{DateTime, Utc, Datelike, NaiveDate};
+use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
-use tracing::{info, instrument};
+use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, QuerySelect, Set};
 
-use crate::db::entities::{tenant, prelude::*};
-use crate::db::migrations::tenant_filter::{TenantQuotaChecker, TenantStatsQuery};
 use crate::errors::AiStudioError;
-use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
+use crate::db::entities::{tenant, user};
+use crate::db::DatabaseManager;
+use crate::api::{PaginationQuery, PaginatedResponse, PaginationInfo};
 
 /// 创建租户请求
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
@@ -99,12 +97,12 @@ pub struct TenantStatsResponse {
 
 /// 租户服务
 pub struct TenantService {
-    db: DatabaseConnection,
+    db: DatabaseManager,
 }
 
 impl TenantService {
     /// 创建新的租户服务实例
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: DatabaseManager) -> Self {
         Self { db }
     }
 
@@ -143,7 +141,7 @@ impl TenantService {
             last_active_at: Set(Some(now.into())),
         };
 
-        let created_tenant = tenant.insert(&self.db).await?;
+        let created_tenant = tenant.insert(&self.db.connection).await?;
 
         info!(tenant_id = %tenant_id, "租户创建成功");
 
@@ -169,7 +167,7 @@ impl TenantService {
     #[instrument(skip(self))]
     pub async fn get_tenant_by_id(&self, tenant_id: Uuid) -> Result<TenantResponse, AiStudioError> {
         let tenant = Tenant::find_by_id(tenant_id)
-            .one(&self.db)
+            .one(&self.db.connection)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -181,7 +179,7 @@ impl TenantService {
     pub async fn get_tenant_by_slug(&self, slug: &str) -> Result<TenantResponse, AiStudioError> {
         let tenant = Tenant::find()
             .filter(tenant::Column::Slug.eq(slug))
-            .one(&self.db)
+            .one(&self.db.connection)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -194,7 +192,7 @@ impl TenantService {
         info!(tenant_id = %tenant_id, "更新租户");
 
         let tenant = Tenant::find_by_id(tenant_id)
-            .one(&self.db)
+            .one(&self.db.connection)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -225,7 +223,7 @@ impl TenantService {
 
         active_tenant.updated_at = Set(Utc::now().into());
 
-        let updated_tenant = active_tenant.update(&self.db).await?;
+        let updated_tenant = active_tenant.update(&self.db.connection).await?;
 
         info!(tenant_id = %tenant_id, "租户更新成功");
 
@@ -242,18 +240,15 @@ impl TenantService {
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
-        // 检查是否有关联数据
-        let user_count = crate::db::entities::user::Entity::find()
-            .filter(crate::db::entities::user::Column::TenantId.eq(tenant_id))
-            .count(&self.db)
+        // 删除租户下的所有用户
+        user::Entity::delete_many()
+            .filter(user::Column::TenantId.eq(tenant_id))
+            .exec(&self.db.connection)
             .await?;
 
-        if user_count > 0 {
-            return Err(AiStudioError::conflict("无法删除包含用户的租户".to_string()));
-        }
-
+        // 删除租户
         tenant::Entity::delete_by_id(tenant_id)
-            .exec(&self.db)
+            .exec(&self.db.connection)
             .await?;
 
         info!(tenant_id = %tenant_id, "租户删除成功");
@@ -298,13 +293,13 @@ impl TenantService {
         };
 
         // 获取总数
-        let total = query.clone().count(&self.db).await?;
+        let total = query.clone().count(&self.db.connection).await?;
 
         // 应用分页
         let tenants = query
             .offset(pagination.offset())
             .limit(pagination.limit())
-            .all(&self.db)
+            .all(&self.db.connection)
             .await?;
 
         // 转换为响应格式
@@ -321,29 +316,29 @@ impl TenantService {
     /// 获取租户统计信息
     #[instrument(skip(self))]
     pub async fn get_tenant_stats(&self) -> Result<TenantStatsResponse, AiStudioError> {
-        let total_tenants = Tenant::find().count(&self.db).await?;
+        let total_tenants = Tenant::find().count(&self.db.connection).await?;
         
         let active_tenants = Tenant::find()
             .filter(tenant::Column::Status.eq(tenant::TenantStatus::Active))
-            .count(&self.db).await?;
+            .count(&self.db.connection).await?;
         
         let suspended_tenants = Tenant::find()
             .filter(tenant::Column::Status.eq(tenant::TenantStatus::Suspended))
-            .count(&self.db).await?;
+            .count(&self.db.connection).await?;
         
         let inactive_tenants = Tenant::find()
             .filter(tenant::Column::Status.eq(tenant::TenantStatus::Inactive))
-            .count(&self.db).await?;
+            .count(&self.db.connection).await?;
 
         let today = Utc::now().date_naive();
         let tenants_created_today = Tenant::find()
             .filter(tenant::Column::CreatedAt.gte(today.and_hms_opt(0, 0, 0).unwrap()))
-            .count(&self.db).await?;
+            .count(&self.db.connection).await?;
 
         let month_start = today.with_day(1).unwrap();
         let tenants_created_this_month = Tenant::find()
             .filter(tenant::Column::CreatedAt.gte(month_start.and_hms_opt(0, 0, 0).unwrap()))
-            .count(&self.db).await?;
+            .count(&self.db.connection).await?;
 
         Ok(TenantStatsResponse {
             total_tenants,
@@ -376,12 +371,7 @@ impl TenantService {
 
         let request = UpdateTenantRequest {
             status: Some(tenant::TenantStatus::Suspended),
-            display_name: None,
-            description: None,
-            contact_email: None,
-            contact_phone: None,
-            config: None,
-            quota_limits: None,
+            ..Default::default()
         };
 
         self.update_tenant(tenant_id, request).await
@@ -394,12 +384,7 @@ impl TenantService {
 
         let request = UpdateTenantRequest {
             status: Some(tenant::TenantStatus::Active),
-            display_name: None,
-            description: None,
-            contact_email: None,
-            contact_phone: None,
-            config: None,
-            quota_limits: None,
+            ..Default::default()
         };
 
         self.update_tenant(tenant_id, request).await

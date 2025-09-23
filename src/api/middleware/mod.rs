@@ -7,7 +7,7 @@ pub mod quota;
 pub mod rate_limit;
 pub mod tenant;
 
-pub use access_control::*;
+// 移除未使用的导入
 pub use auth::*;
 pub use quota::*;
 pub use rate_limit::*;

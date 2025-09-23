@@ -1,16 +1,17 @@
-// API 路由模块
-// 包含所有 HTTP API 端点的定义
+// API 模块
+// 统一导出所有 API 相关组件
 
-pub mod routes;
-pub mod handlers;
-pub mod middleware;
-pub mod models;
-pub mod responses;
-pub mod extractors;
+mod routes;
+mod handlers;
+mod middleware;
+mod models;
+mod responses;
+mod extractors;
 
 pub use routes::*;
+// 避免重复导出 TenantInfo，只从 models 中导出
 pub use handlers::*;
-pub use middleware::*;
+pub use middleware::{access_control, auth, quota, rate_limit, tenant};
 pub use models::*;
 pub use responses::*;
 pub use extractors::*;

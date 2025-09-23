@@ -1,17 +1,20 @@
 // 认证服务
-// 处理用户登录、令牌生成和验证等认证相关业务逻辑
+// 处理用户认证、授权和令牌管理
 
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait};
-use uuid::Uuid;
-use chrono::{Utc, Duration};
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use uuid::Uuid;
+use chrono::{Duration, Utc};
 use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
+use bcrypt::{verify, hash, DEFAULT_COST};
+use sea_orm::{EntityTrait, ColumnTrait, Set, ActiveModelTrait};
 
-use crate::db::entities::{tenant, user, session, prelude::*};
 use crate::errors::AiStudioError;
-use crate::api::middleware::auth::JwtUtils;
+use crate::db::entities::{user, tenant, session, Tenant, User, Session};
+use crate::db::DatabaseManager;
+use crate::api::auth::JwtUtils;
+use crate::api::{PaginationQuery, PaginatedResponse, PaginationInfo};
 
 /// 登录请求
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -156,7 +159,7 @@ pub struct TenantInfo {
 
 /// 认证服务
 pub struct AuthService {
-    db: DatabaseConnection,
+    db: DatabaseManager,
     jwt_secret: String,
     access_token_expires_hours: i64,
     refresh_token_expires_days: i64,
@@ -165,7 +168,7 @@ pub struct AuthService {
 impl AuthService {
     /// 创建新的认证服务实例
     pub fn new(
-        db: DatabaseConnection,
+        db: DatabaseManager,
         jwt_secret: String,
         access_token_expires_hours: Option<i64>,
         refresh_token_expires_days: Option<i64>,
@@ -202,7 +205,7 @@ impl AuthService {
 
         // 获取租户信息
         let tenant = Tenant::find_by_id(user.tenant_id)
-            .one(&self.db)
+            .one(&self.db.connection)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -291,7 +294,7 @@ impl AuthService {
 
         // 获取用户信息
         let user = User::find_by_id(session.user_id)
-            .one(&self.db)
+            .one(&self.db.connection) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::not_found("用户"))?;
 
@@ -339,7 +342,7 @@ impl AuthService {
         // 获取租户信息
         let tenant = Tenant::find()
             .filter(tenant::Column::Slug.eq(&request.tenant_slug))
-            .one(&self.db)
+            .one(&self.db.connection) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -347,8 +350,27 @@ impl AuthService {
             return Err(AiStudioError::forbidden("租户已被暂停或停用".to_string()));
         }
 
-        // 检查用户名和邮箱唯一性
-        self.validate_user_uniqueness(&request.username, &request.email, tenant.id, None).await?;
+        // 检查用户名是否已存在
+        if User::find()
+            .filter(user::Column::Username.eq(&request.username))
+            .filter(user::Column::TenantId.eq(tenant.id))
+            .one(&self.db.connection) // 使用 connection 字段
+            .await?
+            .is_some()
+        {
+            return Err(AiStudioError::conflict("用户名已存在".to_string()));
+        }
+
+        // 检查邮箱是否已存在
+        if User::find()
+            .filter(user::Column::Email.eq(&request.email))
+            .filter(user::Column::TenantId.eq(tenant.id))
+            .one(&self.db.connection) // 使用 connection 字段
+            .await?
+            .is_some()
+        {
+            return Err(AiStudioError::conflict("邮箱已被使用".to_string()));
+        }
 
         // 哈希密码
         let password_hash = hash(&request.password, DEFAULT_COST)
@@ -386,29 +408,14 @@ impl AuthService {
             updated_at: Set(now.into()),
         };
 
-        let created_user = user.insert(&self.db).await?;
+        let created_user = user.insert(&self.db.connection) // 使用 connection 字段
+            .await?;
+        info!(user_id = %created_user.id, username = %created_user.username, "新用户已创建");
 
-        // 发送验证邮件（这里应该实现实际的邮件发送逻辑）
-        let verification_email_sent = self.send_verification_email(&created_user).await.unwrap_or(false);
+        // 创建默认会话
+        self.create_default_session(&created_user, client_ip, user_agent).await?;
 
-        info!(user_id = %user_id, "用户注册成功");
-
-        Ok(RegisterResponse {
-            user: UserInfo {
-                id: created_user.id,
-                tenant_id: created_user.tenant_id,
-                username: created_user.username,
-                email: created_user.email,
-                display_name: created_user.display_name,
-                avatar_url: created_user.avatar_url,
-                role: format!("{}", match created_user.role { user::UserRole::Admin => "admin", user::UserRole::Manager => "manager", user::UserRole::User => "user", user::UserRole::Viewer => "viewer" }),
-                permissions: serde_json::from_value(created_user.permissions).unwrap_or_default(),
-                last_login_at: created_user.last_login_at.map(|dt| dt.into()),
-                created_at: created_user.created_at.into(),
-            },
-            email_verification_required: true,
-            verification_email_sent,
-        })
+        Ok(created_user)
     }
 
     /// 登出
@@ -543,7 +550,8 @@ impl AuthService {
             last_url: Set(None),
         };
 
-        session.insert(&self.db).await?;
+        session.insert(&self.db.connection) // 使用 connection 字段
+            .await?;
         Ok(session_id)
     }
 
@@ -551,7 +559,7 @@ impl AuthService {
     async fn find_session_by_refresh_token(&self, refresh_token: &str) -> Result<session::Model, AiStudioError> {
         Session::find()
             .filter(session::Column::RefreshTokenHash.eq(refresh_token))
-            .one(&self.db)
+            .one(&self.db.connection) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::unauthorized("无效的刷新令牌".to_string()))
     }
@@ -559,7 +567,7 @@ impl AuthService {
     /// 更新会话刷新令牌
     async fn update_session_refresh_token(&self, session_id: Uuid, new_refresh_token: &str) -> Result<(), AiStudioError> {
         let mut session: session::ActiveModel = Session::find_by_id(session_id)
-            .one(&self.db)
+            .one(&self.db.connection) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::not_found("会话"))?
             .into();
@@ -567,14 +575,17 @@ impl AuthService {
         session.refresh_token_hash = Set(Some(new_refresh_token.to_string()));
         session.last_activity_at = Set(Utc::now().into());
 
-        session.update(&self.db).await?;
+        session.update(&self.db.connection) // 使用 connection 字段
+            .await?;
         Ok(())
     }
 
     /// 删除会话
     async fn delete_session_by_refresh_token(&self, refresh_token: &str) -> Result<(), AiStudioError> {
         let session = self.find_session_by_refresh_token(refresh_token).await?;
-        session::Entity::delete_by_id(session.id).exec(&self.db).await?;
+        session::Entity::delete_by_id(session.id)
+            .exec(&self.db.connection) // 使用 connection 字段
+            .await?;
         Ok(())
     }
 

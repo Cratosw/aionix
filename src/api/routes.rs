@@ -2,15 +2,17 @@
 // 定义所有 API 端点的路由配置
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::OpenApi;
+use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{health, version, tenant, quota, rate_limit, monitoring};
+use crate::api::handlers::{health, version, tenant, quota, rate_limit, monitoring, auth};
+use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
 //     SecurityHeadersMiddleware, ResponseTimeMiddleware, ContentTypeMiddleware,
 //     MiddlewareConfig,
 // };
 use crate::api::responses::HttpResponseBuilder;
+use crate::services::tenant::{TenantResponse, TenantStatsResponse, CreateTenantRequest, UpdateTenantRequest};
 
 /// API 文档聚合
 #[derive(OpenApi)]
