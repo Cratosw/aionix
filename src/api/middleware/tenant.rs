@@ -503,7 +503,7 @@ pub struct TenantMiddlewareConfig;
 
 impl TenantMiddlewareConfig {
     /// 配置标准的租户中间件栈
-    pub fn standard() -> Vec<Box<dyn Fn(&mut actix_web::dev::ServiceConfig)>> {
+    pub fn standard() -> Vec<Box<dyn Fn(&mut ServiceConfig)>> {
         vec![
             Box::new(|cfg| {
                 cfg.wrap(TenantIdentificationMiddleware::default());
