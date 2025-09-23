@@ -1,18 +1,15 @@
 // 租户管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
-use crate::api::extractors::{AdminExtractor, PaginationExtractor, SearchExtractor};
+use crate::api::extractors::{AdminExtractor, PaginationExtractor};
 use crate::api::responses::HttpResponseBuilder;
 use crate::api::models::PaginationQuery;
 use crate::services::tenant::{
-    TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter, 
-    TenantResponse, TenantStatsResponse
+    TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter
 };
 use crate::db::DatabaseManager;
-use crate::errors::AiStudioError;
 
 /// 租户管理 API 文档
 // #[derive(OpenApi)]

@@ -3,21 +3,22 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, Result as ActixResult,
+    Error, HttpMessage, HttpResponse,
     body::BoxBody, web::ServiceConfig,
 };
-use futures::future::{LocalBoxFuture, Ready, ready};
+use futures::future::LocalBoxFuture;
 use std::future::{ready as std_ready, Ready as StdReady};
 use std::rc::Rc;
 use uuid::Uuid;
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{error, instrument};
 
 use crate::api::middleware::tenant::TenantInfo;
-use crate::api::middleware::auth::{AuthenticatedUser, ApiKeyInfo};
+use crate::api::responses::HttpResponseBuilder;
+use crate::api::responses::ErrorResponse;
+use crate::db::TenantContext;
 use crate::services::quota::{QuotaService, QuotaType, QuotaUpdateRequest};
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
-use crate::api::responses::ErrorResponse;
 
 /// 配额检查中间件
 pub struct QuotaCheckMiddleware {
@@ -139,22 +140,18 @@ where
                 }
             };
 
-            if let Err(e) = check_quotas(&TenantInfo { id: tenant_id, slug: String::new(), name: String::new(), status: crate::db::entities::tenant::TenantStatus::Active, context: crate::db::migrations::tenant_filter::TenantContext::admin() }, &quota_checks).await {
-                let response = match e.status_code() {
-                    429 => HttpResponse::TooManyRequests().json(ErrorResponse::detailed_error::<()>(
-                        e.error_code().to_string(),
-                        e.to_string(),
-                        None,
-                        None,
-                    )),
-                    _ => HttpResponse::BadRequest().json(ErrorResponse::detailed_error::<()>(
-                        e.error_code().to_string(),
-                        e.to_string(),
-                        None,
-                        None,
-                    )),
-                };
-                return Ok(req.into_response(response));
+            // 检查配额
+            if let Err(e) = check_quotas(&TenantInfo { 
+                id: tenant_id, 
+                slug: String::new(), 
+                name: String::new(), 
+                display_name: String::new(),
+                status: crate::db::entities::tenant::TenantStatus::Active,
+                context: TenantContext::new(tenant_id, String::new(), false),
+            }, &[]).await {
+                return Ok(req.into_response(
+                    HttpResponseBuilder::forbidden::<()>()?
+                ));
             }
 
             if update_on_success {

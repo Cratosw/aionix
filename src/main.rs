@@ -33,12 +33,15 @@ async fn main() -> std::io::Result<()> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     // 初始化数据库迁移系统
-    MigrationManager::init()
+    let db_manager = DatabaseManager::get()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let migration_manager = MigrationManager::new(db_manager.get_connection().clone());
+    migration_manager.init()
         .await
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     // 检查并应用待处理的迁移
-    match MigrationManager::apply_pending_migrations().await {
+    match migration_manager.migrate().await {
         Ok(applied) => {
             if !applied.is_empty() {
                 tracing::info!("应用了 {} 个数据库迁移", applied.len());
@@ -93,8 +96,8 @@ async fn main() -> std::io::Result<()> {
         .run()
         .await
 }
-//
-/ 根路径处理器
+
+/// 根路径处理器
 async fn index() -> ActixResult<HttpResponse> {
     let info = serde_json::json!({
         "name": "Aionix AI Studio",

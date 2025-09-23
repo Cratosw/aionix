@@ -3,7 +3,6 @@
 
 use crate::errors::AiStudioError;
 use sea_orm::{DatabaseConnection, Statement, ConnectionTrait};
-use serde::{Deserialize, Serialize};
 use tracing::{info, warn, instrument};
 use uuid::Uuid;
 

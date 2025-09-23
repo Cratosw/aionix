@@ -4,7 +4,7 @@
 use crate::errors::AiStudioError;
 use sea_orm::{
     sea_query::{Expr, SimpleExpr},
-    ColumnTrait, EntityTrait, QueryFilter, QueryTrait, Select, ConnectionTrait,
+    ColumnTrait, EntityTrait, QueryFilter, Select, ConnectionTrait,
 };
 use uuid::Uuid;
 use std::marker::PhantomData;

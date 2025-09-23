@@ -6,7 +6,7 @@ use crate::db::migrations::{MigrationManager, SeedDataManager, BackupManager, Ba
 use crate::errors::AiStudioError;
 use sea_orm::{Database, DatabaseConnection};
 use std::path::PathBuf;
-use tracing::{info, error};
+use tracing::info;
 use uuid::Uuid;
 
 /// CLI 命令

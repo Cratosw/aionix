@@ -3,14 +3,13 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, Result as ActixResult,
-    web::ServiceConfig,
+    Error, HttpMessage, HttpResponse,
 };
-use futures::future::{LocalBoxFuture, Ready, ready};
+use futures::future::LocalBoxFuture;
 use std::future::{ready as std_ready, Ready as StdReady};
 use std::rc::Rc;
 use uuid::Uuid;
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{error, instrument, debug};
 
 use crate::api::middleware::tenant::TenantInfo;
 use crate::api::middleware::auth::{AuthenticatedUser, ApiKeyInfo};
@@ -352,7 +351,7 @@ fn build_actual_key_type(
         RateLimitKeyType::Ip(_) => {
             let ip = req
                 .connection_info()
-                .remote_addr()
+                .peer_addr()
                 .unwrap_or("unknown")
                 .to_string();
             Ok(RateLimitKeyType::Ip(ip))

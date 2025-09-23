@@ -1,7 +1,7 @@
 [package]
 name = "aionix"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Aionix Team"]
 description = "企业级 AI Studio - 基于 Rust 的多租户 AI 问答系统"
 license = "MIT"

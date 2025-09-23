@@ -1,46 +1,16 @@
 // 认证 API 处理器
 
 use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
-use utoipa::{OpenApi, ToSchema};
 
-use crate::api::extractors::{TenantExtractor, OptionalAuthExtractor, RequestIdExtractor};
 use crate::api::responses::HttpResponseBuilder;
 use crate::services::auth::{
-    AuthService, LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse,
-    RegisterRequest, RegisterResponse, PasswordResetRequest, PasswordResetConfirmRequest,
+    AuthService, LoginRequest, RefreshTokenRequest,
+    RegisterRequest, PasswordResetRequest, PasswordResetConfirmRequest,
+    EmailVerificationQuery, ResendVerificationRequest
 };
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
-use sea_orm::EntityTrait;
-
-/// 认证 API 文档
-// #[derive(OpenApi)]
-// #[openapi(
-//     paths(
-//         login,
-//         refresh_token,
-//         register,
-//         logout,
-//         request_password_reset,
-//         confirm_password_reset,
-//         get_current_user,
-//     ),
-//     components(schemas(
-//         LoginRequest,
-//         LoginResponse,
-//         RefreshTokenRequest,
-//         RefreshTokenResponse,
-//         RegisterRequest,
-//         RegisterResponse,
-//         PasswordResetRequest,
-//         PasswordResetConfirmRequest,
-//         crate::services::auth::UserInfo,
-//         crate::services::auth::TenantInfo,
-//     ))
-// )]
-// pub struct AuthApiDoc;
-
-/// 用户登录
+use crate::api::extractors::AuthExtractor;
 pub async fn login(
     req: HttpRequest,
     request: web::Json<LoginRequest>,
@@ -56,7 +26,7 @@ pub async fn login(
     // 提取客户端信息
     let client_ip = req
         .connection_info()
-        .remote_addr()
+        .peer_addr()
         .map(|s| s.to_string());
     
     let user_agent = req
@@ -70,7 +40,6 @@ pub async fn login(
     HttpResponseBuilder::ok(response)
 }
 
-/// 刷新访问令牌
 pub async fn refresh_token(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -87,14 +56,13 @@ pub async fn refresh_token(
     HttpResponseBuilder::ok(response)
 }
 
-/// 用户注册
 pub async fn register(
     request: web::Json<RegisterRequest>,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
     let service = AuthService::new(
         db_manager.get_connection().clone(),
-        "default_jwt_secret".to_string(),
+        "default_jwt_secret".to_string(), // 应该从配置中获取
         None,
         None,
     );
@@ -104,7 +72,6 @@ pub async fn register(
     HttpResponseBuilder::created(response)
 }
 
-/// 用户登出
 pub async fn logout(
     request: web::Json<RefreshTokenRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -121,7 +88,6 @@ pub async fn logout(
     HttpResponseBuilder::no_content()
 }
 
-/// 请求密码重置
 pub async fn request_password_reset(
     request: web::Json<PasswordResetRequest>,
 ) -> ActixResult<HttpResponse> {
@@ -138,18 +104,24 @@ pub async fn request_password_reset(
     HttpResponseBuilder::no_content()
 }
 
-/// 确认密码重置
 pub async fn confirm_password_reset(
     request: web::Json<PasswordResetConfirmRequest>,
 ) -> ActixResult<HttpResponse> {
-    // 这里应该实现密码重置确认逻辑
-    // 为了简化，这里只返回成功响应
+    let db_manager = DatabaseManager::get()?;
+    let service = AuthService::new(
+        db_manager.get_connection().clone(),
+        "default_jwt_secret".to_string(),
+        None,
+        None,
+    );
+
+    service.confirm_password_reset(request.into_inner()).await?;
+
     HttpResponseBuilder::no_content()
 }
 
-/// 获取当前用户信息
 pub async fn get_current_user(
-    auth: crate::api::extractors::AuthExtractor,
+    auth: AuthExtractor,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
     let db = db_manager.get_connection();
@@ -177,43 +149,23 @@ pub async fn get_current_user(
     HttpResponseBuilder::ok(user_info)
 }
 
-/// 验证邮箱
 pub async fn verify_email(
-    query: web::Query<EmailVerificationQuery>,
+    _query: web::Query<EmailVerificationQuery>,
 ) -> ActixResult<HttpResponse> {
     // 这里应该实现邮箱验证逻辑
     // 为了简化，这里只返回成功响应
     HttpResponseBuilder::no_content()
 }
 
-/// 重新发送验证邮件
 pub async fn resend_verification_email(
-    request: web::Json<ResendVerificationRequest>,
+    _request: web::Json<ResendVerificationRequest>,
 ) -> ActixResult<HttpResponse> {
-    // 这里应该实现重新发送验证邮件逻辑
+    // 这里应该实现重新发送验证邮件的逻辑
     // 为了简化，这里只返回成功响应
     HttpResponseBuilder::no_content()
 }
 
-// 辅助结构体
-
-/// 邮箱验证查询参数
-#[derive(serde::Deserialize)]
-pub struct EmailVerificationQuery {
-    pub token: String,
-}
-
-/// 重新发送验证邮件请求
-#[derive(serde::Deserialize, utoipa::ToSchema)]
-pub struct ResendVerificationRequest {
-    /// 邮箱
-    pub email: String,
-    /// 租户标识符
-    pub tenant_slug: String,
-}
-
-/// 配置认证路由
-pub fn configure_auth_routes(cfg: &mut web::ServiceConfig) {
+pub fn auth_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/auth")
             .route("/login", web::post().to(login))

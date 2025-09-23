@@ -3,20 +3,17 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, Result as ActixResult,
+    Error, HttpMessage, HttpResponse,
     body::BoxBody,
 };
-use futures::future::{LocalBoxFuture, Ready, ready};
+use futures::future::LocalBoxFuture;
 use std::future::{ready as std_ready, Ready as StdReady};
-use std::rc::Rc;
-use uuid::Uuid;
-use tracing::{info, warn, error, instrument, debug};
-use serde::{Deserialize, Serialize};
+use tracing::instrument;
 use sea_orm::EntityTrait;
 
 use crate::api::middleware::{
-    auth::{AuthenticatedUser, ApiKeyInfo, JwtAuthMiddleware, ApiKeyAuthMiddleware},
-    tenant::{TenantInfo, TenantIdentificationMiddleware, TenantIdentificationStrategy},
+    auth::{AuthenticatedUser, ApiKeyInfo},
+    tenant::{TenantInfo, TenantIdentificationStrategy},
 };
 use crate::errors::AiStudioError;
 use crate::api::responses::ErrorResponse;
@@ -206,7 +203,7 @@ where
                 tenant: req.extensions().get::<TenantInfo>().cloned(),
                 client_ip: req
                     .connection_info()
-                    .remote_addr()
+                    .peer_addr()
                     .unwrap_or("unknown")
                     .to_string(),
                 user_agent: req
@@ -402,7 +399,7 @@ async fn check_roles(
 async fn check_ip_whitelist(context: &AccessControlContext) -> Result<(), AiStudioError> {
     // 如果有 API 密钥，检查其 IP 白名单
     if let Some(api_key) = &context.api_key {
-        use crate::db::entities::{api_key, prelude::*};
+        use crate::db::entities::prelude::*;
         use crate::db::DatabaseManager;
 
         let db_manager = DatabaseManager::get()?;
@@ -428,7 +425,7 @@ async fn check_ip_whitelist(context: &AccessControlContext) -> Result<(), AiStud
 /// 检查配额限制
 async fn check_quota_limits(context: &AccessControlContext) -> Result<(), AiStudioError> {
     if let Some(tenant) = &context.tenant {
-        use crate::db::entities::{tenant as tenant_entity, prelude::*};
+        use crate::db::entities::prelude::*;
         use crate::db::DatabaseManager;
 
         let db_manager = DatabaseManager::get()?;
@@ -476,7 +473,7 @@ async fn check_rate_limits(context: &AccessControlContext) -> Result<(), AiStudi
     // 为了简化，这里只做基本的检查
     
     if let Some(api_key) = &context.api_key {
-        use crate::db::entities::{api_key, prelude::*};
+        use crate::db::entities::prelude::*;
         use crate::db::DatabaseManager;
 
         let db_manager = DatabaseManager::get()?;

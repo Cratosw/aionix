@@ -4,12 +4,12 @@
 use uuid::Uuid;
 use chrono::{Utc, DateTime};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{info, error, instrument};
 use utoipa::ToSchema;
 use std::collections::HashMap;
 
 use crate::errors::AiStudioError;
-use crate::services::quota::{QuotaType, QuotaUsage};
+use crate::services::quota::QuotaUsage;
 use crate::services::monitoring::{AlertEvent, AlertSeverity};
 
 /// 通知类型

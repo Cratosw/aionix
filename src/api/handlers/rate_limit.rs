@@ -1,10 +1,9 @@
 // 限流管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
-use crate::api::extractors::{AdminExtractor, PaginationExtractor};
+use crate::api::extractors::AdminExtractor;
 use crate::api::responses::HttpResponseBuilder;
 use crate::api::middleware::tenant::TenantInfo;
 use crate::api::middleware::auth::{AuthenticatedUser, ApiKeyInfo};

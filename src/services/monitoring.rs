@@ -1,17 +1,17 @@
 // 监控服务
 // 处理资源使用统计、性能监控和告警
 
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait, QuerySelect};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, ActiveModelTrait, QuerySelect};
 use uuid::Uuid;
 use chrono::{Utc, Duration, DateTime};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{info, instrument, debug};
 use utoipa::ToSchema;
 use std::collections::HashMap;
 
-use crate::db::entities::{tenant, prelude::*};
+use crate::db::entities::prelude::*;
 use crate::errors::AiStudioError;
-use crate::services::quota::{QuotaService, QuotaType, QuotaHealth};
+use crate::services::quota::QuotaService;
 
 /// 监控指标类型
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

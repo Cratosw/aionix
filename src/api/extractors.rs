@@ -1,16 +1,14 @@
 // API 请求提取器
 // 定义自定义的请求提取器，用于处理认证、租户上下文等
 
-use actix_web::{dev::Payload, web, FromRequest, HttpRequest, Result as ActixResult};
+use actix_web::{dev::Payload, FromRequest, HttpRequest};
 use futures::future::{Ready, ready};
 use serde::Deserialize;
 use uuid::Uuid;
 use std::pin::Pin;
 use std::future::Future;
 
-use crate::api::responses::{ErrorResponse, HttpResponseBuilder};
 use crate::db::migrations::tenant_filter::TenantContext;
-use crate::errors::AiStudioError;
 
 /// 租户上下文提取器
 #[derive(Debug, Clone)]

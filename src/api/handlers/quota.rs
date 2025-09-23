@@ -1,15 +1,14 @@
 // 配额管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
-use crate::api::extractors::{AdminExtractor, PaginationExtractor};
+use crate::api::extractors::AdminExtractor;
 use crate::api::responses::HttpResponseBuilder;
 use crate::api::middleware::tenant::TenantInfo;
 use crate::api::middleware::auth::AuthenticatedUser;
 use crate::services::quota::{
-    QuotaService, QuotaType, QuotaUpdateRequest, QuotaStatsResponse, QuotaCheckResult
+    QuotaService, QuotaType, QuotaUpdateRequest
 };
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
@@ -124,7 +123,7 @@ pub async fn reset_quota(
 pub async fn get_quota_trends(
     path: web::Path<(Uuid, String)>,
     query: web::Query<TrendsQuery>,
-    tenant_info: web::ReqData<TenantInfo>,
+    _tenant_info: web::ReqData<TenantInfo>,
     user: web::ReqData<AuthenticatedUser>,
 ) -> ActixResult<HttpResponse> {
     let (tenant_id, quota_type_str) = path.into_inner();

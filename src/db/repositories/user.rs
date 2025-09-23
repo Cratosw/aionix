@@ -4,7 +4,7 @@ use crate::db::entities::{user, prelude::*};
 use crate::errors::AiStudioError;
 use sea_orm::{prelude::*, *};
 use uuid::Uuid;
-use tracing::{info, warn, instrument};
+use tracing::{info, instrument};
 
 /// 用户仓储
 pub struct UserRepository;

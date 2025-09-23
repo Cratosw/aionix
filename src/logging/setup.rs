@@ -5,9 +5,6 @@ use anyhow::Result;
 
 use tracing::Level;
 use tracing_subscriber::{
-    fmt::{self, format::FmtSpan},
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
     EnvFilter, Layer,
 };
 

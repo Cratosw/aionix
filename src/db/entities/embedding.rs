@@ -1,7 +1,6 @@
 // 向量嵌入实体定义
 
 use sea_orm::entity::prelude::*;
-use sea_orm::sea_query::Alias;
 use serde::{Deserialize, Serialize};
 
 /// 嵌入状态枚举

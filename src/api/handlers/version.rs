@@ -1,8 +1,6 @@
 // 版本信息处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use utoipa::{OpenApi, ToSchema};
-use chrono::Utc;
 
 use crate::api::models::ApiVersion;
 use crate::api::responses::HttpResponseBuilder;

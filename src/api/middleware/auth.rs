@@ -3,16 +3,15 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, Result as ActixResult,
+    Error, HttpMessage, HttpResponse,
     body::BoxBody,
 };
-use futures::future::{LocalBoxFuture, Ready, ready};
+use futures::future::LocalBoxFuture;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
 use std::future::{ready as std_ready, Ready as StdReady};
-use std::rc::Rc;
 use uuid::Uuid;
-use tracing::{info, warn, error, instrument};
+use tracing::{warn, instrument};
 use chrono::{DateTime, Utc};
 
 use crate::db::DatabaseManager;
@@ -218,7 +217,7 @@ where
             // 获取客户端 IP
             let client_ip = req
                 .connection_info()
-                .remote_addr()
+                .peer_addr()
                 .unwrap_or("unknown")
                 .to_string();
 
@@ -367,7 +366,7 @@ async fn verify_api_key_with_ip(api_key: &str, client_ip: &str) -> Result<ApiKey
     let db_manager = DatabaseManager::get()?;
     let db = db_manager.get_connection();
     
-    use crate::db::entities::{api_key, prelude::*};
+    use crate::db::entities::prelude::*;
     let key_model = ApiKey::find_by_id(api_key_info.key_id)
         .one(db)
         .await?
@@ -443,7 +442,7 @@ async fn verify_api_key(api_key: &str) -> Result<ApiKeyInfo, AiStudioError> {
 /// 检查 API 密钥速率限制
 #[instrument(skip(api_key_info))]
 async fn check_api_key_rate_limit(api_key_info: &ApiKeyInfo) -> Result<(), AiStudioError> {
-    use crate::db::entities::{api_key, prelude::*};
+    use crate::db::entities::prelude::*;
     
     let db_manager = DatabaseManager::get()?;
     let db = db_manager.get_connection();

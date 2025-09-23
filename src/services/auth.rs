@@ -6,12 +6,12 @@ use uuid::Uuid;
 use chrono::{Utc, Duration};
 use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify, DEFAULT_COST};
-use tracing::{info, warn, error, instrument};
+use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
 
 use crate::db::entities::{tenant, user, session, prelude::*};
 use crate::errors::AiStudioError;
-use crate::api::middleware::auth::{JwtUtils, AuthenticatedUser};
+use crate::api::middleware::auth::JwtUtils;
 
 /// 登录请求
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -53,39 +53,14 @@ pub struct RefreshTokenRequest {
 /// 刷新令牌响应
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct RefreshTokenResponse {
-    /// 新的访问令牌
+    /// 访问令牌
     pub access_token: String,
-    /// 新的刷新令牌
+    /// 刷新令牌
     pub refresh_token: String,
     /// 令牌类型
     pub token_type: String,
     /// 过期时间（秒）
     pub expires_in: i64,
-}
-
-/// 用户信息
-#[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct UserInfo {
-    pub id: Uuid,
-    pub tenant_id: Uuid,
-    pub username: String,
-    pub email: String,
-    pub display_name: String,
-    pub avatar_url: Option<String>,
-    pub role: String,
-    pub permissions: Vec<String>,
-    pub last_login_at: Option<chrono::DateTime<Utc>>,
-    pub created_at: chrono::DateTime<Utc>,
-}
-
-/// 租户信息
-#[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct TenantInfo {
-    pub id: Uuid,
-    pub name: String,
-    pub slug: String,
-    pub display_name: String,
-    pub status: String,
 }
 
 /// 注册请求
@@ -136,6 +111,47 @@ pub struct PasswordResetConfirmRequest {
     pub new_password: String,
     /// 确认新密码
     pub new_password_confirm: String,
+}
+
+/// 邮箱验证查询参数
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct EmailVerificationQuery {
+    /// 验证令牌
+    pub token: String,
+}
+
+/// 重新发送验证邮件请求
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct ResendVerificationRequest {
+    /// 用户邮箱
+    pub email: String,
+    /// 租户标识符
+    pub tenant_slug: String,
+}
+
+/// 用户信息
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct UserInfo {
+    pub id: Uuid,
+    pub tenant_id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub last_login_at: Option<chrono::DateTime<Utc>>,
+    pub created_at: chrono::DateTime<Utc>,
+}
+
+/// 租户信息
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct TenantInfo {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub display_name: String,
+    pub status: String,
 }
 
 /// 认证服务

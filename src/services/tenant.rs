@@ -8,7 +8,7 @@ use chrono::Utc;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use tracing::{info, warn, error, instrument};
+use tracing::{info, instrument};
 
 use crate::db::entities::{tenant, prelude::*};
 use crate::db::migrations::tenant_filter::{TenantQuotaChecker, TenantStatsQuery};

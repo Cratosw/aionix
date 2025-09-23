@@ -5,8 +5,7 @@ use crate::errors::AiStudioError;
 use sea_orm::{DatabaseConnection, Statement, ConnectionTrait, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, warn, error, instrument};
-use sha2::{Sha256, Digest};
+use tracing::{info, warn, instrument};
 
 pub mod migrations;
 pub mod seed_data;

@@ -1,12 +1,11 @@
 // API 响应结构
 // 定义统一的 API 响应格式和错误处理
 
-use actix_web::{HttpResponse, ResponseError, Result as ActixResult};
+use actix_web::{HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use crate::errors::AiStudioError;
 
 /// 统一 API 响应结构
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

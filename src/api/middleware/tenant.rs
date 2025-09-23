@@ -3,14 +3,13 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, Result as ActixResult,
+    Error, HttpMessage, HttpResponse,
     body::BoxBody, web::ServiceConfig,
 };
-use futures::future::{LocalBoxFuture, Ready, ready};
+use futures::future::LocalBoxFuture;
 use std::future::{ready as std_ready, Ready as StdReady};
-use std::rc::Rc;
 use uuid::Uuid;
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{warn, instrument, debug};
 use sea_orm::{EntityTrait, ColumnTrait, QueryFilter};
 
 use crate::db::DatabaseManager;
@@ -38,8 +37,9 @@ pub enum TenantIdentificationStrategy {
 #[derive(Debug, Clone)]
 pub struct TenantInfo {
     pub id: Uuid,
-    pub slug: String,
     pub name: String,
+    pub slug: String,
+    pub display_name: String,
     pub status: tenant::TenantStatus,
     pub context: TenantContext,
 }
@@ -217,7 +217,7 @@ where
 
     forward_ready!(service);
 
-    fn call(&self, mut req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
         Box::pin(async move {
             // 验证租户数据隔离
@@ -426,6 +426,7 @@ async fn get_tenant_by_id(tenant_id: Uuid) -> Result<TenantInfo, AiStudioError> 
         id: tenant.id,
         slug: tenant.slug.clone(),
         name: tenant.name.clone(),
+        display_name: tenant.display_name.clone(),
         status: tenant.status.clone(),
         context: TenantContext::new(tenant.id, tenant.slug, false),
     })
@@ -446,6 +447,7 @@ async fn get_tenant_by_slug(slug: &str) -> Result<TenantInfo, AiStudioError> {
         id: tenant.id,
         slug: tenant.slug.clone(),
         name: tenant.name.clone(),
+        display_name: tenant.display_name.clone(),
         status: tenant.status.clone(),
         context: TenantContext::new(tenant.id, tenant.slug, false),
     })

@@ -1,14 +1,13 @@
 // 配额管理服务
 // 处理租户配额检查、使用统计和限制管理
 
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, Set, ActiveModelTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, Set, ActiveModelTrait};
 use uuid::Uuid;
 use chrono::{Utc, Duration, DateTime};
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error, instrument, debug};
+use tracing::{info, instrument, debug};
 use utoipa::ToSchema;
-use std::collections::HashMap;
 
 use crate::db::entities::{tenant, prelude::*};
 use crate::errors::AiStudioError;
@@ -168,7 +167,7 @@ impl QuotaService {
             "更新配额使用量"
         );
 
-        let mut tenant = self.get_tenant(tenant_id).await?;
+        let tenant = self.get_tenant(tenant_id).await?;
         let mut usage_stats = tenant.get_usage_stats()
             .map_err(|e| AiStudioError::internal(format!("解析使用统计失败: {}", e)))?;
 
@@ -267,7 +266,7 @@ impl QuotaService {
     pub async fn reset_time_based_quotas(&self, tenant_id: Uuid) -> Result<(), AiStudioError> {
         info!(tenant_id = %tenant_id, "重置时间相关配额");
 
-        let mut tenant = self.get_tenant(tenant_id).await?;
+        let tenant = self.get_tenant(tenant_id).await?;
         let mut usage_stats = tenant.get_usage_stats()
             .map_err(|e| AiStudioError::internal(format!("解析使用统计失败: {}", e)))?;
 
