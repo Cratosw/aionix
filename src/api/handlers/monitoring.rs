@@ -67,7 +67,23 @@ pub async fn get_system_metrics(
 }
 
 /// 获取租户使用统计
-pub async fn get_tenant_usage_stats(
+#[utoipa::path(
+    get,
+    path = "/monitoring/tenants/{tenant_id}/usage",
+    tag = "monitoring",
+    summary = "获取租户使用统计",
+    description = "获取指定租户的使用统计信息",
+    params(
+        ("tenant_id" = Uuid, Path, description = "租户 ID"),
+        ("period_hours" = Option<i32>, Query, description = "统计周期（小时）")
+    ),
+    responses(
+        (status = 200, description = "租户使用统计", body = TenantUsageStats),
+        (status = 403, description = "无权访问", body = ApiError),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
+pub async fn get_service_status(
     path: web::Path<Uuid>,
     query: web::Query<UsageStatsQuery>,
     _tenant_info: web::ReqData<TenantInfo>,
