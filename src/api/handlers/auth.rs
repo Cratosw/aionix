@@ -2,6 +2,7 @@
 
 use actix_web::{web, HttpRequest, HttpResponse, Result as ActixResult};
 
+use sea_orm::EntityTrait;
 use crate::api::responses::HttpResponseBuilder;
 use crate::services::auth::{
     AuthService, LoginRequest, RefreshTokenRequest,
@@ -18,7 +19,7 @@ pub async fn login(
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
     let service = AuthService::new(
-        db_manager.clone(), // 直接传递 DatabaseManager
+        db_manager.get_connection().clone(),
         "default_jwt_secret".to_string(), // 应该从配置中获取
         None,
         None,

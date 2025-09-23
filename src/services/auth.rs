@@ -8,7 +8,7 @@ use chrono::{Duration, Utc};
 use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
 use bcrypt::{verify, hash, DEFAULT_COST};
-use sea_orm::{EntityTrait, ColumnTrait, Set, ActiveModelTrait, QueryFilter, QuerySelect, QueryOrder};
+use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, Set, ActiveModelTrait, QueryFilter, QuerySelect, QueryOrder};
 
 use crate::errors::AiStudioError;
 use crate::db::entities::{user, tenant, session, Tenant, User, Session};
@@ -168,7 +168,7 @@ pub struct AuthService {
 impl AuthService {
     /// 创建新的认证服务实例
     pub fn new(
-        db: sea_orm::DatabaseConnection,
+        db: DatabaseConnection,
         jwt_secret: String,
         access_token_expires_hours: Option<i64>,
         refresh_token_expires_days: Option<i64>,
@@ -416,7 +416,22 @@ impl AuthService {
         // 注册时不需要创建会话，用户需要登录才能获得会话
         // self.create_default_session(&created_user, client_ip, user_agent).await?;
 
-        Ok(created_user)
+        Ok(RegisterResponse {
+            user: UserInfo {
+                id: created_user.id,
+                tenant_id: created_user.tenant_id,
+                username: created_user.username.clone(),
+                email: created_user.email.clone(),
+                display_name: created_user.display_name.clone(),
+                avatar_url: created_user.avatar_url.clone(),
+                role: created_user.role.to_string(),
+                permissions: self.get_user_permissions(&created_user).await?,
+                last_login_at: created_user.last_login_at.map(|dt| dt.into()),
+                created_at: created_user.created_at.into(),
+            },
+            email_verification_required: true, // or based on config
+            verification_email_sent: self.send_verification_email(&created_user).await?,
+        })
     }
 
     /// 登出

@@ -41,6 +41,85 @@ use crate::services::tenant::TenantInfo;
     servers(
         (url = "/api/v1", description = "API v1")
     ),
+    paths(
+        // 健康检查
+        health::health_check,
+        // 版本信息
+        version::get_version,
+        // 租户管理
+        tenant::create_tenant,
+        tenant::get_tenant,
+        tenant::list_tenants,
+        tenant::update_tenant,
+        tenant::delete_tenant,
+        tenant::get_tenant_stats,
+        tenant::suspend_tenant,
+        tenant::activate_tenant,
+        // 配额管理
+        quota::check_quota,
+        quota::update_quota,
+        quota::get_quota_usage,
+        // 速率限制
+        rate_limit::get_rate_limits,
+        // rate_limit::update_rate_limit,
+        // rate_limit::delete_rate_limit,
+        rate_limit::check_rate_limit,
+        // 监控
+        monitoring::get_system_metrics,
+        monitoring::get_service_status,
+        // 认证
+        auth::login,
+        auth::logout,
+        auth::refresh_token,
+        auth::register,
+        auth::request_password_reset,
+        auth::confirm_password_reset,
+        auth::get_current_user,
+        auth::update_user_profile,
+    ),
+    components(
+        schemas(
+            // 通用响应
+            crate::api::responses::ApiResponse<_>,
+            crate::api::responses::ApiError,
+            
+            // 版本信息
+            ApiVersion,
+            
+            // 认证相关
+            LoginRequest,
+            LoginResponse,
+            RegisterRequest,
+            RegisterResponse,
+            RefreshTokenRequest,
+            PasswordResetRequest,
+            PasswordResetConfirmRequest,
+            UserInfo,
+            TenantInfo,
+            
+            // 租户相关
+            CreateTenantRequest,
+            UpdateTenantRequest,
+            TenantResponse,
+            TenantStatsResponse,
+            
+            // 配额相关
+            QuotaCheckResult,
+            QuotaUpdateRequest,
+            QuotaStatsResponse,
+            
+            // 速率限制相关
+            RateLimitPolicy,
+            RateLimitCheckRequest,
+            
+            // 监控相关
+            SystemHealth,
+            
+            // 分页相关
+            PaginationQuery,
+            PaginationInfo,
+        )
+    ),
     tags(
         (name = "health", description = "健康检查端点"),
         (name = "version", description = "版本信息端点"),
@@ -49,16 +128,7 @@ use crate::services::tenant::TenantInfo;
         (name = "quota", description = "配额管理端点"),
         (name = "rate-limit", description = "速率限制端点"),
         (name = "monitoring", description = "监控端点"),
-    ),
-    paths(merge(
-        health::HealthApiDoc,
-        version::VersionApiDoc,
-        tenant::TenantApiDoc,
-        quota::QuotaApiDoc,
-        rate_limit::RateLimitApiDoc,
-        monitoring::MonitoringApiDoc,
-        auth::AuthApiDoc
-    ))
+    )
 )]
 pub struct ApiDoc;
 

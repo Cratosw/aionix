@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::api::extractors::{AdminExtractor, PaginationExtractor};
 use crate::api::responses::HttpResponseBuilder;
 use crate::api::models::PaginationQuery;
+use crate::api::middleware::tenant::get_tenant_by_slug;
 use crate::services::tenant::{
     TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter
 };

@@ -32,7 +32,7 @@ impl TenantStatsQuery {
         Ok(tenant::TenantUsageStats::default())
     }
     
-    pub async fn update_usage_stats(_db: &DatabaseManager, _tenant_id: Uuid, _stats: &tenant::TenantUsageStats) -> Result<(), AiStudioError> {
+    pub async fn update_usage_stats(_db: &DatabaseConnection, _tenant_id: Uuid, _stats: &tenant::TenantUsageStats) -> Result<(), AiStudioError> {
         // 简化的实现，实际应该更新数据库中的统计信息
         Ok(())
     }
