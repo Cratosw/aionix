@@ -14,6 +14,10 @@ pub enum TenantStatus {
     Suspended,
     #[sea_orm(string_value = "inactive")]
     Inactive,
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "archived")]
+    Archived,
 }
 
 /// 租户实体

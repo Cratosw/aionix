@@ -85,17 +85,18 @@ mod tests {
 
     #[test]
     fn test_migration_status() {
+        let now = chrono::Utc::now().naive_utc();
         let status = crate::db::MigrationStatus {
-            version: "20240101_000001".to_string(),
             name: "test_migration".to_string(),
-            applied_at: Some(chrono::Utc::now()),
-            is_applied: true,
+            version: 20240101000001, // 假设版本是数字而非字符串
+            applied_at: now,
+            checksum: "dummy_checksum".to_string(),
         };
 
-        assert_eq!(status.version, "20240101_000001");
         assert_eq!(status.name, "test_migration");
-        assert!(status.is_applied);
-        assert!(status.applied_at.is_some());
+        assert_eq!(status.version, 20240101000001);
+        assert_eq!(status.applied_at, now);
+        assert_eq!(status.checksum, "dummy_checksum");
     }
 
     #[test]

@@ -3,15 +3,40 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc, Datelike, NaiveDate};
+use chrono::{Utc, Datelike};
 use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
-use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, QuerySelect, Set};
+use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, QuerySelect, Set, PaginatorTrait, QueryOrder};
 
 use crate::errors::AiStudioError;
-use crate::db::entities::{tenant, user};
+use crate::db::entities::{Tenant, tenant, user};
 use crate::db::DatabaseManager;
 use crate::api::{PaginationQuery, PaginatedResponse, PaginationInfo};
+
+// 租户配额检查器
+pub struct TenantQuotaChecker;
+
+impl TenantQuotaChecker {
+    pub async fn check_quota(_db: &DatabaseManager, _tenant_id: Uuid, _resource_type: &str, _requested_amount: i64) -> Result<bool, AiStudioError> {
+        // 简化的实现，实际应该根据数据库查询结果返回
+        Ok(true)
+    }
+}
+
+// 租户统计查询器
+pub struct TenantStatsQuery;
+
+impl TenantStatsQuery {
+    pub async fn get_stats(_db: &DatabaseManager, _tenant_id: Uuid) -> Result<tenant::TenantUsageStats, AiStudioError> {
+        // 简化的实现，实际应该从数据库获取统计信息
+        Ok(tenant::TenantUsageStats::default())
+    }
+    
+    pub async fn update_usage_stats(_db: &DatabaseManager, _tenant_id: Uuid, _stats: &tenant::TenantUsageStats) -> Result<(), AiStudioError> {
+        // 简化的实现，实际应该更新数据库中的统计信息
+        Ok(())
+    }
+}
 
 /// 创建租户请求
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
@@ -35,7 +60,7 @@ pub struct CreateTenantRequest {
 }
 
 /// 更新租户请求
-#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema, Default)]
 pub struct UpdateTenantRequest {
     /// 显示名称
     pub display_name: Option<String>,
@@ -59,7 +84,11 @@ pub struct TenantFilter {
     /// 状态过滤
     pub status: Option<tenant::TenantStatus>,
     /// 名称搜索
-    pub name_search: Option<String>,
+    pub name: Option<String>,
+    /// 标识符搜索
+    pub slug: Option<String>,
+    /// 显示名称搜索
+    pub display_name: Option<String>,
     /// 创建时间范围
     pub created_after: Option<chrono::DateTime<Utc>>,
     pub created_before: Option<chrono::DateTime<Utc>>,
@@ -95,6 +124,16 @@ pub struct TenantStatsResponse {
     pub tenants_created_this_month: u64,
 }
 
+/// 租户信息
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct TenantInfo {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub display_name: String,
+    pub status: String,
+}
+
 /// 租户服务
 pub struct TenantService {
     db: DatabaseManager,
@@ -102,7 +141,7 @@ pub struct TenantService {
 
 impl TenantService {
     /// 创建新的租户服务实例
-    pub fn new(db: DatabaseManager) -> Self {
+    pub fn new(db: DatabaseConnection) -> Self {
         Self { db }
     }
 
@@ -141,7 +180,7 @@ impl TenantService {
             last_active_at: Set(Some(now.into())),
         };
 
-        let created_tenant = tenant.insert(&self.db.connection).await?;
+        let created_tenant = tenant.insert(&self.db).await?;
 
         info!(tenant_id = %tenant_id, "租户创建成功");
 
@@ -167,7 +206,7 @@ impl TenantService {
     #[instrument(skip(self))]
     pub async fn get_tenant_by_id(&self, tenant_id: Uuid) -> Result<TenantResponse, AiStudioError> {
         let tenant = Tenant::find_by_id(tenant_id)
-            .one(&self.db.connection)
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -179,7 +218,7 @@ impl TenantService {
     pub async fn get_tenant_by_slug(&self, slug: &str) -> Result<TenantResponse, AiStudioError> {
         let tenant = Tenant::find()
             .filter(tenant::Column::Slug.eq(slug))
-            .one(&self.db.connection)
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -192,7 +231,7 @@ impl TenantService {
         info!(tenant_id = %tenant_id, "更新租户");
 
         let tenant = Tenant::find_by_id(tenant_id)
-            .one(&self.db.connection)
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -223,7 +262,7 @@ impl TenantService {
 
         active_tenant.updated_at = Set(Utc::now().into());
 
-        let updated_tenant = active_tenant.update(&self.db.connection).await?;
+        let updated_tenant = active_tenant.update(&self.db).await?;
 
         info!(tenant_id = %tenant_id, "租户更新成功");
 
@@ -235,6 +274,7 @@ impl TenantService {
     pub async fn delete_tenant(&self, tenant_id: Uuid) -> Result<(), AiStudioError> {
         info!(tenant_id = %tenant_id, "删除租户");
 
+        // 验证租户是否存在
         let tenant = Tenant::find_by_id(tenant_id)
             .one(&self.db)
             .await?
@@ -243,12 +283,12 @@ impl TenantService {
         // 删除租户下的所有用户
         user::Entity::delete_many()
             .filter(user::Column::TenantId.eq(tenant_id))
-            .exec(&self.db.connection)
+            .exec(&self.db)
             .await?;
 
         // 删除租户
         tenant::Entity::delete_by_id(tenant_id)
-            .exec(&self.db.connection)
+            .exec(&self.db)
             .await?;
 
         info!(tenant_id = %tenant_id, "租户删除成功");
@@ -256,25 +296,27 @@ impl TenantService {
         Ok(())
     }
 
-    /// 列出租户（分页）
+    /// 获取租户列表
     #[instrument(skip(self))]
-    pub async fn list_tenants(
-        &self,
-        filter: Option<TenantFilter>,
-        pagination: PaginationQuery,
-    ) -> Result<PaginatedResponse<TenantResponse>, AiStudioError> {
+    pub async fn list_tenants(&self, pagination: PaginationQuery, filter: Option<TenantFilter>) -> Result<PaginatedResponse<TenantResponse>, AiStudioError> {
+        info!(page = pagination.page, page_size = pagination.page_size, "获取租户列表");
+
+        // 构建查询
         let mut query = Tenant::find();
 
-        // 应用过滤器
+        // 应用过滤条件
         if let Some(filter) = filter {
             if let Some(status) = filter.status {
                 query = query.filter(tenant::Column::Status.eq(status));
             }
-            if let Some(name_search) = filter.name_search {
-                query = query.filter(
-                    tenant::Column::Name.contains(&name_search)
-                        .or(tenant::Column::DisplayName.contains(&name_search))
-                );
+            if let Some(name) = filter.name {
+                query = query.filter(tenant::Column::Name.contains(&name));
+            }
+            if let Some(slug) = filter.slug {
+                query = query.filter(tenant::Column::Slug.contains(&slug));
+            }
+            if let Some(display_name) = filter.display_name {
+                query = query.filter(tenant::Column::DisplayName.contains(&display_name));
             }
             if let Some(created_after) = filter.created_after {
                 query = query.filter(tenant::Column::CreatedAt.gte(created_after));
@@ -293,52 +335,76 @@ impl TenantService {
         };
 
         // 获取总数
-        let total = query.clone().count(&self.db.connection).await?;
+        let total = query.clone().count(&self.db).await?;
 
         // 应用分页
         let tenants = query
             .offset(pagination.offset())
-            .limit(pagination.limit())
-            .all(&self.db.connection)
+            .limit(Some(pagination.page_size.into())) // 修复类型转换问题
+            .all(&self.db)
             .await?;
 
         // 转换为响应格式
-        let mut tenant_responses = Vec::new();
+        let mut items = Vec::new();
         for tenant in tenants {
-            tenant_responses.push(self.convert_to_response(tenant).await?);
+            items.push(self.convert_to_response(tenant).await?);
         }
 
-        let pagination_info = PaginationInfo::new(pagination.page, pagination.page_size, total);
+        let total_pages = (total as f64 / pagination.page_size as f64).ceil() as u32;
+        let has_next = pagination.page < total_pages;
+        let has_prev = pagination.page > 1;
 
-        Ok(PaginatedResponse::new(tenant_responses, pagination_info))
+        let pagination_info = PaginationInfo {
+            page: pagination.page,
+            page_size: pagination.page_size,
+            total,
+            total_pages,
+            has_next,
+            has_prev,
+        };
+
+        Ok(PaginatedResponse {
+            data: items,
+            pagination: pagination_info,
+        })
     }
 
     /// 获取租户统计信息
     #[instrument(skip(self))]
     pub async fn get_tenant_stats(&self) -> Result<TenantStatsResponse, AiStudioError> {
-        let total_tenants = Tenant::find().count(&self.db.connection).await?;
-        
+        info!("获取租户统计信息");
+
+        let total_tenants = Tenant::find().count(&self.db).await?;
+
         let active_tenants = Tenant::find()
             .filter(tenant::Column::Status.eq(tenant::TenantStatus::Active))
-            .count(&self.db.connection).await?;
-        
-        let suspended_tenants = Tenant::find()
-            .filter(tenant::Column::Status.eq(tenant::TenantStatus::Suspended))
-            .count(&self.db.connection).await?;
-        
+            .count(&self.db).await?;
+
         let inactive_tenants = Tenant::find()
             .filter(tenant::Column::Status.eq(tenant::TenantStatus::Inactive))
-            .count(&self.db.connection).await?;
+            .count(&self.db).await?;
+
+        let suspended_tenants = Tenant::find()
+            .filter(tenant::Column::Status.eq(tenant::TenantStatus::Suspended))
+            .count(&self.db).await?;
+
+        let pending_tenants = Tenant::find()
+            .filter(tenant::Column::Status.eq(tenant::TenantStatus::Pending))
+            .count(&self.db).await?;
+
+        let archived_tenants = Tenant::find()
+            .filter(tenant::Column::Status.eq(tenant::TenantStatus::Archived))
+            .count(&self.db).await?;
 
         let today = Utc::now().date_naive();
         let tenants_created_today = Tenant::find()
             .filter(tenant::Column::CreatedAt.gte(today.and_hms_opt(0, 0, 0).unwrap()))
-            .count(&self.db.connection).await?;
+            .count(&self.db).await?;
 
         let month_start = today.with_day(1).unwrap();
         let tenants_created_this_month = Tenant::find()
             .filter(tenant::Column::CreatedAt.gte(month_start.and_hms_opt(0, 0, 0).unwrap()))
-            .count(&self.db.connection).await?;
+            .count(&self.db).await?;
 
         Ok(TenantStatsResponse {
             total_tenants,

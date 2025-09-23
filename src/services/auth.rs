@@ -8,7 +8,7 @@ use chrono::{Duration, Utc};
 use tracing::{info, warn, instrument};
 use utoipa::ToSchema;
 use bcrypt::{verify, hash, DEFAULT_COST};
-use sea_orm::{EntityTrait, ColumnTrait, Set, ActiveModelTrait};
+use sea_orm::{EntityTrait, ColumnTrait, Set, ActiveModelTrait, QueryFilter, QuerySelect, QueryOrder};
 
 use crate::errors::AiStudioError;
 use crate::db::entities::{user, tenant, session, Tenant, User, Session};
@@ -159,7 +159,7 @@ pub struct TenantInfo {
 
 /// 认证服务
 pub struct AuthService {
-    db: DatabaseManager,
+    db: sea_orm::DatabaseConnection,
     jwt_secret: String,
     access_token_expires_hours: i64,
     refresh_token_expires_days: i64,
@@ -168,7 +168,7 @@ pub struct AuthService {
 impl AuthService {
     /// 创建新的认证服务实例
     pub fn new(
-        db: DatabaseManager,
+        db: sea_orm::DatabaseConnection,
         jwt_secret: String,
         access_token_expires_hours: Option<i64>,
         refresh_token_expires_days: Option<i64>,
@@ -205,7 +205,7 @@ impl AuthService {
 
         // 获取租户信息
         let tenant = Tenant::find_by_id(user.tenant_id)
-            .one(&self.db.connection)
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -294,9 +294,10 @@ impl AuthService {
 
         // 获取用户信息
         let user = User::find_by_id(session.user_id)
-            .one(&self.db.connection) // 使用 connection 字段
-            .await?
-            .ok_or_else(|| AiStudioError::not_found("用户"))?;
+            .one(self.db.get_connection())
+            .await
+            .map_err(|e| AiStudioError::database(format!("查询用户失败: {}", e)))?
+            .ok_or_else(|| AiStudioError::not_found("用户不存在".to_string()))?;
 
         // 生成新的访问令牌
         let access_token = JwtUtils::generate_token(
@@ -342,7 +343,7 @@ impl AuthService {
         // 获取租户信息
         let tenant = Tenant::find()
             .filter(tenant::Column::Slug.eq(&request.tenant_slug))
-            .one(&self.db.connection) // 使用 connection 字段
+            .one(&self.db) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::not_found("租户"))?;
 
@@ -354,7 +355,7 @@ impl AuthService {
         if User::find()
             .filter(user::Column::Username.eq(&request.username))
             .filter(user::Column::TenantId.eq(tenant.id))
-            .one(&self.db.connection) // 使用 connection 字段
+            .one(&self.db) // 使用 connection 字段
             .await?
             .is_some()
         {
@@ -365,7 +366,7 @@ impl AuthService {
         if User::find()
             .filter(user::Column::Email.eq(&request.email))
             .filter(user::Column::TenantId.eq(tenant.id))
-            .one(&self.db.connection) // 使用 connection 字段
+            .one(&self.db) // 使用 connection 字段
             .await?
             .is_some()
         {
@@ -408,12 +409,12 @@ impl AuthService {
             updated_at: Set(now.into()),
         };
 
-        let created_user = user.insert(&self.db.connection) // 使用 connection 字段
+        let created_user = user.insert(&self.db) // 使用 connection 字段
             .await?;
         info!(user_id = %created_user.id, username = %created_user.username, "新用户已创建");
 
-        // 创建默认会话
-        self.create_default_session(&created_user, client_ip, user_agent).await?;
+        // 注册时不需要创建会话，用户需要登录才能获得会话
+        // self.create_default_session(&created_user, client_ip, user_agent).await?;
 
         Ok(created_user)
     }
@@ -458,7 +459,7 @@ impl AuthService {
         if let Some(slug) = tenant_slug {
             let tenant = Tenant::find()
                 .filter(tenant::Column::Slug.eq(slug))
-                .one(&self.db)
+                .one(self.db.get_connection())
                 .await?
                 .ok_or_else(|| AiStudioError::not_found("租户"))?;
             
@@ -471,7 +472,7 @@ impl AuthService {
                 user::Column::Username.eq(username_or_email)
                     .or(user::Column::Email.eq(username_or_email))
             )
-            .one(&self.db)
+            .one(self.db.get_connection())
             .await?
             .ok_or_else(|| AiStudioError::unauthorized("用户名或密码错误".to_string()))
     }
@@ -483,7 +484,7 @@ impl AuthService {
         if let Some(slug) = tenant_slug {
             let tenant = Tenant::find()
                 .filter(tenant::Column::Slug.eq(slug))
-                .one(&self.db)
+                .one(self.db.get_connection())
                 .await?
                 .ok_or_else(|| AiStudioError::not_found("租户"))?;
             
@@ -491,7 +492,7 @@ impl AuthService {
         }
 
         query
-            .one(&self.db)
+            .one(self.db.get_connection())
             .await?
             .ok_or_else(|| AiStudioError::not_found("用户"))
     }
@@ -550,7 +551,7 @@ impl AuthService {
             last_url: Set(None),
         };
 
-        session.insert(&self.db.connection) // 使用 connection 字段
+        session.insert(&self.db) // 使用 connection 字段
             .await?;
         Ok(session_id)
     }
@@ -559,15 +560,16 @@ impl AuthService {
     async fn find_session_by_refresh_token(&self, refresh_token: &str) -> Result<session::Model, AiStudioError> {
         Session::find()
             .filter(session::Column::RefreshTokenHash.eq(refresh_token))
-            .one(&self.db.connection) // 使用 connection 字段
-            .await?
+            .one(self.db.get_connection())
+            .await
+            .map_err(|e| AiStudioError::database(format!("查询会话失败: {}", e)))?
             .ok_or_else(|| AiStudioError::unauthorized("无效的刷新令牌".to_string()))
     }
 
     /// 更新会话刷新令牌
     async fn update_session_refresh_token(&self, session_id: Uuid, new_refresh_token: &str) -> Result<(), AiStudioError> {
         let mut session: session::ActiveModel = Session::find_by_id(session_id)
-            .one(&self.db.connection) // 使用 connection 字段
+            .one(&self.db) // 使用 connection 字段
             .await?
             .ok_or_else(|| AiStudioError::not_found("会话"))?
             .into();
@@ -575,7 +577,7 @@ impl AuthService {
         session.refresh_token_hash = Set(Some(new_refresh_token.to_string()));
         session.last_activity_at = Set(Utc::now().into());
 
-        session.update(&self.db.connection) // 使用 connection 字段
+        session.update(&self.db) // 使用 connection 字段
             .await?;
         Ok(())
     }
@@ -584,23 +586,25 @@ impl AuthService {
     async fn delete_session_by_refresh_token(&self, refresh_token: &str) -> Result<(), AiStudioError> {
         let session = self.find_session_by_refresh_token(refresh_token).await?;
         session::Entity::delete_by_id(session.id)
-            .exec(&self.db.connection) // 使用 connection 字段
-            .await?;
+            .exec(self.db.get_connection())
+            .await
+            .map_err(|e| AiStudioError::database(format!("删除会话失败: {}", e)))?;
         Ok(())
     }
 
     /// 更新用户最后登录时间
     async fn update_last_login(&self, user_id: Uuid) -> Result<(), AiStudioError> {
         let mut user: user::ActiveModel = User::find_by_id(user_id)
-            .one(&self.db)
-            .await?
-            .ok_or_else(|| AiStudioError::not_found("用户"))?
+            .one(self.db.get_connection())
+            .await
+            .map_err(|e| AiStudioError::database(format!("查询用户失败: {}", e)))?
+            .ok_or_else(|| AiStudioError::not_found("用户不存在".to_string()))?
             .into();
 
         user.last_login_at = Set(Some(Utc::now().into()));
         user.updated_at = Set(Utc::now().into());
 
-        user.update(&self.db).await?;
+        user.update(self.db.get_connection()).await?;
         Ok(())
     }
 
@@ -625,11 +629,11 @@ impl AuthService {
             email_query = email_query.filter(user::Column::Id.ne(exclude_id));
         }
 
-        if username_query.one(&self.db).await?.is_some() {
+        if username_query.one(self.db.get_connection()).await?.is_some() {
             return Err(AiStudioError::conflict("用户名已存在".to_string()));
         }
 
-        if email_query.one(&self.db).await?.is_some() {
+        if email_query.one(self.db.get_connection()).await?.is_some() {
             return Err(AiStudioError::conflict("邮箱已存在".to_string()));
         }
 

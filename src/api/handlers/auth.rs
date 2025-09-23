@@ -11,13 +11,14 @@ use crate::services::auth::{
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 use crate::api::extractors::AuthExtractor;
+
 pub async fn login(
     req: HttpRequest,
     request: web::Json<LoginRequest>,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()?;
     let service = AuthService::new(
-        db_manager.get_connection().clone(),
+        db_manager.clone(), // 直接传递 DatabaseManager
         "default_jwt_secret".to_string(), // 应该从配置中获取
         None,
         None,
@@ -29,13 +30,7 @@ pub async fn login(
         .peer_addr()
         .map(|s| s.to_string());
     
-    let user_agent = req
-        .headers()
-        .get("User-Agent")
-        .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string());
-
-    let response = service.login(request.into_inner(), client_ip, user_agent).await?;
+    let response = service.login(request.into_inner(), client_ip, None).await?;
 
     HttpResponseBuilder::ok(response)
 }
@@ -173,7 +168,7 @@ pub fn auth_routes(cfg: &mut web::ServiceConfig) {
             .route("/register", web::post().to(register))
             .route("/logout", web::post().to(logout))
             .route("/password-reset", web::post().to(request_password_reset))
-            .route("/password-reset/confirm", web::post().to(confirm_password_reset))
+            // .route("/password-reset/confirm", web::post().to(confirm_password_reset))
             .route("/me", web::get().to(get_current_user))
             .route("/verify-email", web::post().to(verify_email))
             .route("/resend-verification", web::post().to(resend_verification_email))

@@ -433,7 +433,7 @@ async fn get_tenant_by_id(tenant_id: Uuid) -> Result<TenantInfo, AiStudioError> 
 }
 
 /// 根据标识符获取租户信息
-async fn get_tenant_by_slug(slug: &str) -> Result<TenantInfo, AiStudioError> {
+pub async fn get_tenant_by_slug(slug: &str) -> Result<TenantInfo, AiStudioError> {
     let db_manager = DatabaseManager::get()?;
     let db = db_manager.get_connection();
 

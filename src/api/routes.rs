@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{health, version, tenant, quota, rate_limit, monitoring, auth};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -13,6 +13,13 @@ use crate::api::models::*;
 // };
 use crate::api::responses::HttpResponseBuilder;
 use crate::services::tenant::{TenantResponse, TenantStatsResponse, CreateTenantRequest, UpdateTenantRequest};
+use crate::services::auth::{LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, RefreshTokenRequest, PasswordResetRequest, PasswordResetConfirmRequest, UserInfo};
+use crate::services::quota::{QuotaCheckResult, QuotaUpdateRequest, QuotaStatsResponse};
+use crate::api::handlers::rate_limit::RateLimitCheckRequest;
+use crate::services::rate_limit::RateLimitPolicy;
+use crate::services::monitoring::{SystemHealth};
+use crate::services::tenant::TenantInfo;
+
 
 /// API 文档聚合
 #[derive(OpenApi)]
@@ -34,66 +41,24 @@ use crate::services::tenant::{TenantResponse, TenantStatsResponse, CreateTenantR
     servers(
         (url = "/api/v1", description = "API v1")
     ),
-    // Temporarily disabled OpenAPI paths due to missing handler functions
-    // paths(
-    //     health::health_check,
-    //     health::health_detailed,
-    //     health::readiness_check,
-    //     health::liveness_check,
-    //     version::get_version,
-    //     version::get_build_info,
-    //     version::get_api_spec,
-    //     tenant::create_tenant,
-    //     tenant::get_tenant,
-    //     tenant::get_tenant_by_slug,
-    //     tenant::update_tenant,
-    //     tenant::delete_tenant,
-    //     tenant::list_tenants,
-    //     tenant::get_tenant_stats,
-    //     tenant::suspend_tenant,
-    //     tenant::activate_tenant,
-    //     tenant::check_tenant_quota,
-    // ),
-    components(schemas(
-        crate::api::models::ApiVersion,
-        crate::api::models::HealthResponse,
-        crate::api::models::HealthStatus,
-        crate::api::models::DependencyHealth,
-        crate::api::models::SystemInfo,
-        crate::api::models::PaginationQuery,
-        crate::api::models::PaginatedResponse<serde_json::Value>,
-        crate::api::models::PaginationInfo,
-        crate::api::models::SearchQuery,
-        crate::api::models::BatchRequest<serde_json::Value>,
-        crate::api::models::BatchResponse<serde_json::Value>,
-        crate::api::models::BatchOperation,
-        crate::api::models::BatchError,
-        crate::api::models::TenantInfo,
-        crate::api::models::UserInfo,
-        crate::api::models::AuthRequest,
-        crate::api::models::AuthResponse,
-        crate::api::models::RefreshTokenRequest,
-        crate::services::tenant::CreateTenantRequest,
-        crate::services::tenant::UpdateTenantRequest,
-        crate::services::tenant::TenantResponse,
-        crate::services::tenant::TenantStatsResponse,
-        crate::api::handlers::tenant::SuspendTenantRequest,
-        crate::api::handlers::tenant::QuotaCheckResponse,
-        crate::api::responses::ApiResponse<serde_json::Value>,
-        crate::api::responses::ApiError,
-    )),
     tags(
-        (name = "Health", description = "健康检查相关接口"),
-        (name = "Version", description = "版本信息相关接口"),
-        (name = "Tenant", description = "租户管理相关接口"),
-        (name = "User", description = "用户管理相关接口"),
-        (name = "Auth", description = "认证相关接口"),
-        (name = "Knowledge Base", description = "知识库管理相关接口"),
-        (name = "Document", description = "文档管理相关接口"),
-        (name = "QA", description = "问答相关接口"),
-        (name = "Agent", description = "Agent 管理相关接口"),
-        (name = "Workflow", description = "工作流管理相关接口"),
-    )
+        (name = "health", description = "健康检查端点"),
+        (name = "version", description = "版本信息端点"),
+        (name = "auth", description = "认证相关端点"),
+        (name = "tenant", description = "租户管理端点"),
+        (name = "quota", description = "配额管理端点"),
+        (name = "rate-limit", description = "速率限制端点"),
+        (name = "monitoring", description = "监控端点"),
+    ),
+    paths(merge(
+        health::HealthApiDoc,
+        version::VersionApiDoc,
+        tenant::TenantApiDoc,
+        quota::QuotaApiDoc,
+        rate_limit::RateLimitApiDoc,
+        monitoring::MonitoringApiDoc,
+        auth::AuthApiDoc
+    ))
 )]
 pub struct ApiDoc;
 

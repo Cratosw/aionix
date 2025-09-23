@@ -1,12 +1,12 @@
 // API 模块
 // 统一导出所有 API 相关组件
 
-mod routes;
-mod handlers;
-mod middleware;
-mod models;
-mod responses;
-mod extractors;
+pub mod routes;
+pub mod handlers;
+pub mod middleware;
+pub mod models;
+pub mod responses;
+pub mod extractors;
 
 pub use routes::*;
 // 避免重复导出 TenantInfo，只从 models 中导出

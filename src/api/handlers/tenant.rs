@@ -62,23 +62,44 @@ pub async fn get_tenant(
     let db_manager = DatabaseManager::get()?;
     let service = TenantService::new(db_manager.get_connection().clone());
 
-    let tenant = service.get_tenant_by_id(tenant_id).await?;
+    let tenant = service.get_tenant(tenant_id).await?;
 
     HttpResponseBuilder::ok(tenant)
 }
 
-/// 根据标识符获取租户
-pub async fn get_tenant_by_slug(
+/// 获取租户列表
+pub async fn list_tenants(
     _admin: AdminExtractor,
-    path: web::Path<String>,
+    query: web::Query<TenantListQuery>,
+    pagination: web::Query<crate::api::models::PaginationQuery>,
 ) -> ActixResult<HttpResponse> {
-    let slug = path.into_inner();
     let db_manager = DatabaseManager::get()?;
     let service = TenantService::new(db_manager.get_connection().clone());
 
-    let tenant = service.get_tenant_by_slug(&slug).await?;
+    let filter = TenantFilter {
+        status: query.status.as_ref().and_then(|s| match s.as_str() {
+            "active" => Some(crate::db::entities::tenant::TenantStatus::Active),
+            "suspended" => Some(crate::db::entities::tenant::TenantStatus::Suspended),
+            "inactive" => Some(crate::db::entities::tenant::TenantStatus::Inactive),
+            _ => None,
+        }),
+        name: query.name_search.clone(), // 修正字段名
+        slug: None,
+        display_name: None,
+        created_after: query.created_after,
+        created_before: query.created_before,
+    };
 
-    HttpResponseBuilder::ok(tenant)
+    let pagination_query = crate::api::models::PaginationQuery {
+        page: pagination.page,
+        page_size: pagination.page_size,
+        sort_by: pagination.sort_by.clone(),
+        sort_order: pagination.sort_order.clone(),
+    };
+
+    let tenants = service.list_tenants(pagination_query, Some(filter)).await?;
+
+    HttpResponseBuilder::ok(tenants)
 }
 
 /// 更新租户
@@ -108,42 +129,6 @@ pub async fn delete_tenant(
     service.delete_tenant(tenant_id).await?;
 
     HttpResponseBuilder::no_content()
-}
-
-/// 列出租户
-pub async fn list_tenants(
-    _admin: AdminExtractor,
-    pagination: PaginationExtractor,
-    query: web::Query<TenantListQuery>,
-) -> ActixResult<HttpResponse> {
-    let db_manager = DatabaseManager::get()?;
-    let service = TenantService::new(db_manager.get_connection().clone());
-
-    let filter = TenantFilter {
-        status: query.status.as_ref().and_then(|s| match s.as_str() {
-            "active" => Some(crate::db::entities::tenant::TenantStatus::Active),
-            "suspended" => Some(crate::db::entities::tenant::TenantStatus::Suspended),
-            "inactive" => Some(crate::db::entities::tenant::TenantStatus::Inactive),
-            _ => None,
-        }),
-        name_search: query.name_search.clone(),
-        created_after: query.created_after,
-        created_before: query.created_before,
-    };
-
-    let pagination_query = PaginationQuery {
-        page: pagination.page,
-        page_size: pagination.page_size,
-        sort_by: pagination.sort_by,
-        sort_order: match pagination.sort_order.as_str() {
-            "asc" => crate::api::models::SortOrder::Asc,
-            _ => crate::api::models::SortOrder::Desc,
-        },
-    };
-
-    let tenants = service.list_tenants(Some(filter), pagination_query).await?;
-
-    HttpResponseBuilder::ok(tenants)
 }
 
 /// 获取租户统计
@@ -197,7 +182,7 @@ pub async fn check_tenant_quota(
     let requested_amount = query.requested_amount.unwrap_or(1);
     
     let db_manager = DatabaseManager::get()?;
-    let service = TenantService::new(db_manager.get_connection().clone());
+    let service = TenantService::new(db_manager.clone());
 
     let can_allocate = service.check_tenant_quota(tenant_id, &resource_type, requested_amount).await?;
 
