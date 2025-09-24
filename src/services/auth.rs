@@ -11,7 +11,7 @@ use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, Set, ActiveModelTrai
 
 use crate::errors::AiStudioError;
 use crate::db::entities::{user, tenant, session, Tenant, User, Session};
-use crate::api::auth::JwtUtils;
+use crate::api::middleware::auth::JwtUtils;
 
 /// 登录请求
 #[derive(Debug, Clone, Deserialize, ToSchema)]

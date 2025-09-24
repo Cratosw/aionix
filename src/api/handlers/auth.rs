@@ -6,12 +6,11 @@ use sea_orm::EntityTrait;
 use crate::api::responses::HttpResponseBuilder;
 use crate::services::auth::{
     AuthService, LoginRequest, RefreshTokenRequest,
-    RegisterRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdateUserProfileRequest,
-    EmailVerificationQuery, ResendVerificationRequest
+    RegisterRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdateUserProfileRequest
 };
 use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
-use crate::api::extractors::AuthExtractor;
+use crate::api::AuthExtractor;
 
 ///用户登录
 #[utoipa::path(

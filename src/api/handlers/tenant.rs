@@ -3,10 +3,10 @@
 use actix_web::{web, HttpResponse, Result as ActixResult, HttpRequest};
 use uuid::Uuid;
 
-use crate::api::extractors::{AdminExtractor, PaginationExtractor};
+use crate::api::extractors::AdminExtractor;
 use crate::api::responses::HttpResponseBuilder;
 use crate::api::models::PaginationQuery;
-use crate::api::middleware::tenant::get_tenant_by_slug;
+// use crate::api::middleware::tenant;
 use crate::services::tenant::{
     TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter
 };
@@ -281,7 +281,7 @@ pub async fn check_tenant_quota(
     let requested_amount = query.requested_amount.unwrap_or(1);
     
     let db_manager = DatabaseManager::get()?;
-    let service = TenantService::new(db_manager.clone());
+    let service = TenantService::new(db_manager.get_connection().clone());
 
     let can_allocate = service.check_tenant_quota(tenant_id, &resource_type, requested_amount).await?;
 
