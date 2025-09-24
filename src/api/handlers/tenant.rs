@@ -75,8 +75,8 @@ pub async fn create_tenant(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
     responses(
-        (status = 200, description = "租户信息", body = TenantResponse),
-        (status = 404, description = "租户不存在", body = ApiError)
+        (status = 200, description = "租户信息", body = crate::services::tenant::TenantResponse),
+        (status = 404, description = "租户不存在", body = crate::api::responses::ApiError)
     )
 )]
 pub async fn get_tenant(
@@ -152,8 +152,8 @@ pub async fn list_tenants(
     ),
     request_body = UpdateTenantRequest,
     responses(
-        (status = 200, description = "租户更新成功", body = TenantResponse),
-        (status = 404, description = "租户不存在", body = ApiError)
+        (status = 200, description = "租户更新成功", body = crate::services::tenant::TenantResponse),
+        (status = 404, description = "租户不存在", body = crate::api::responses::ApiError)
     )
 )]
 pub async fn update_tenant(
@@ -180,7 +180,7 @@ pub async fn update_tenant(
     ),
     responses(
         (status = 204, description = "租户删除成功"),
-        (status = 404, description = "租户不存在", body = ApiError)
+        (status = 404, description = "租户不存在", body = crate::api::responses::ApiError)
     )
 )]
 pub async fn delete_tenant(
@@ -309,8 +309,8 @@ pub async fn check_tenant_quota(
         ("slug" = String, Path, description = "租户标识符")
     ),
     responses(
-        (status = 200, description = "租户信息", body = TenantResponse),
-        (status = 404, description = "租户不存在", body = ApiError)
+        (status = 200, description = "租户信息", body = crate::services::tenant::TenantResponse),
+        (status = 404, description = "租户不存在", body = crate::api::responses::ApiError)
     )
 )]
 pub async fn get_tenant_by_slug(

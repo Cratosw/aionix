@@ -8,6 +8,7 @@ mod errors;
 mod logging;
 mod db;
 mod health;
+mod services;
 
 use config::ConfigLoader;
 use errors::ErrorHandlerMiddleware;
