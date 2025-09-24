@@ -6,7 +6,7 @@ use sea_orm::EntityTrait;
 use crate::api::responses::HttpResponseBuilder;
 use crate::services::auth::{
     AuthService, LoginRequest, RefreshTokenRequest,
-    RegisterRequest, PasswordResetRequest, PasswordResetConfirmRequest,
+    RegisterRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdateUserProfileRequest,
     EmailVerificationQuery, ResendVerificationRequest
 };
 use crate::db::DatabaseManager;
@@ -199,7 +199,17 @@ pub async fn confirm_password_reset(
 pub async fn get_current_user(
     auth: AuthExtractor,
 ) -> ActixResult<HttpResponse> {
-    HttpResponseBuilder::ok(auth.user_info)
+    let db_manager = DatabaseManager::get()?;
+    let service = AuthService::new(
+        db_manager.get_connection().clone(),
+        "default_jwt_secret".to_string(), // 应该从配置中获取
+        None,
+        None,
+    );
+
+    let user_info = service.get_user_info(auth.user_id).await?;
+
+    HttpResponseBuilder::ok(user_info)
 }
 
 ///更新用户资料
@@ -229,7 +239,7 @@ pub async fn update_user_profile(
         None,
     );
 
-    let updated_user = service.update_user_profile(auth.user_info.id, request.into_inner()).await?;
+    let updated_user = service.update_user_profile(auth.user_id, request.into_inner()).await?;
 
     HttpResponseBuilder::ok(updated_user)
 }
@@ -249,10 +259,3 @@ pub fn configure_auth_routes(cfg: &mut web::ServiceConfig) {
     );
 }
 
-// 临时类型定义，应该移到适当的模块中
-#[derive(serde::Deserialize, utoipa::ToSchema)]
-pub struct UpdateUserProfileRequest {
-    pub display_name: Option<String>,
-    pub email: Option<String>,
-    pub avatar_url: Option<String>,
-}

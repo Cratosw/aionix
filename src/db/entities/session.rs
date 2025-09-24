@@ -74,24 +74,24 @@ pub struct Model {
     pub metadata: Json,
     
     /// 会话过期时间
-    pub expires_at: DateTimeWithTimeZone,
+    pub expires_at: DateTime,
     
     /// 刷新令牌过期时间
     #[sea_orm(nullable)]
-    pub refresh_expires_at: Option<DateTimeWithTimeZone>,
+    pub refresh_expires_at: Option<DateTime>,
     
     /// 最后活跃时间
-    pub last_activity_at: DateTimeWithTimeZone,
+    pub last_activity_at: DateTime,
     
     /// 最后访问的 URL
     #[sea_orm(column_type = "String(Some(1000))", nullable)]
     pub last_url: Option<String>,
     
     /// 创建时间
-    pub created_at: DateTimeWithTimeZone,
+    pub created_at: DateTime,
     
     /// 更新时间
-    pub updated_at: DateTimeWithTimeZone,
+    pub updated_at: DateTime,
 }
 
 /// 会话关联关系

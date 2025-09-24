@@ -100,14 +100,14 @@ pub struct Model {
     
     /// 邮箱验证时间
     #[sea_orm(nullable)]
-    pub email_verified_at: Option<DateTimeWithTimeZone>,
+    pub email_verified_at: Option<DateTime>,
     
     /// 手机验证状态
     pub phone_verified: bool,
     
     /// 手机验证时间
     #[sea_orm(nullable)]
-    pub phone_verified_at: Option<DateTimeWithTimeZone>,
+    pub phone_verified_at: Option<DateTime>,
     
     /// 两步验证启用状态
     pub two_factor_enabled: bool,
@@ -118,7 +118,7 @@ pub struct Model {
     
     /// 最后登录时间
     #[sea_orm(nullable)]
-    pub last_login_at: Option<DateTimeWithTimeZone>,
+    pub last_login_at: Option<DateTime>,
     
     /// 最后登录 IP
     #[sea_orm(column_type = "String(Some(45))", nullable)]
@@ -129,13 +129,21 @@ pub struct Model {
     
     /// 账户锁定时间
     #[sea_orm(nullable)]
-    pub locked_until: Option<DateTimeWithTimeZone>,
+    pub locked_until: Option<DateTime>,
+
+    /// 密码重置令牌
+    #[sea_orm(column_type = "String(Some(255))", nullable)]
+    pub password_reset_token: Option<String>,
+
+    /// 密码重置令牌过期时间
+    #[sea_orm(nullable)]
+    pub password_reset_expires_at: Option<DateTime>,
     
     /// 创建时间
-    pub created_at: DateTimeWithTimeZone,
+    pub created_at: DateTime,
     
     /// 更新时间
-    pub updated_at: DateTimeWithTimeZone,
+    pub updated_at: DateTime,
 }
 
 /// 用户关联关系

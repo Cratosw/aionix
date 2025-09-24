@@ -229,7 +229,7 @@ pub fn configure_quota_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::scope("")
                     .configure(MiddlewareConfig::api_standard())
-                    .route("/stats", web::get().to(get_quota_stats))
+                    .route("/usage", web::get().to(get_quota_usage))
                     .route("/{quota_type}/check", web::get().to(check_quota))
                     .route("/{quota_type}/trends", web::get().to(get_quota_trends))
             )

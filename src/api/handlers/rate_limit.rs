@@ -324,7 +324,7 @@ pub fn configure_rate_limit_routes(cfg: &mut web::ServiceConfig) {
             .service(
                 web::scope("")
                     .configure(MiddlewareConfig::api_standard())
-                    .route("/stats", web::get().to(get_rate_limit_stats))
+                    .route("/stats", web::get().to(get_rate_limits))
                     .route("/check", web::post().to(check_rate_limit))
                     .route("/policies", web::get().to(get_rate_limit_policies))
             )

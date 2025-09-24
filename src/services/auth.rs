@@ -154,6 +154,14 @@ pub struct TenantInfo {
     pub status: String,
 }
 
+/// 更新用户资料请求
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct UpdateUserProfileRequest {
+    pub display_name: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
 /// 认证服务
 pub struct AuthService {
     db: sea_orm::DatabaseConnection,
@@ -261,7 +269,7 @@ impl AuthService {
                 role: user.role.to_string(),
                 permissions: self.get_user_permissions(&user).await?,
                 last_login_at: user.last_login_at.map(|dt| dt.into()),
-                created_at: user.created_at.into(),
+                created_at: user.created_at,
             },
             tenant: TenantInfo {
                 id: tenant.id,
@@ -283,7 +291,7 @@ impl AuthService {
 
         // 检查会话是否过期
         {
-            let expires_utc: chrono::DateTime<chrono::Utc> = session.expires_at.into();
+            let expires_utc: chrono::DateTime<chrono::Utc> = session.expires_at;
             if expires_utc < chrono::Utc::now() {
                 return Err(AiStudioError::unauthorized("刷新令牌已过期".to_string()));
             }
@@ -402,8 +410,10 @@ impl AuthService {
             locked_until: Set(None),
             two_factor_enabled: Set(false),
             two_factor_secret: Set(None),
-            created_at: Set(now.into()),
-            updated_at: Set(now.into()),
+            password_reset_token: Set(None),
+            password_reset_expires_at: Set(None),
+            created_at: Set(now),
+            updated_at: Set(now),
         };
 
         let created_user = user.insert(&self.db) // 使用 connection 字段
@@ -424,7 +434,7 @@ impl AuthService {
                 role: created_user.role.to_string(),
                 permissions: self.get_user_permissions(&created_user).await?,
                 last_login_at: created_user.last_login_at.map(|dt| dt.into()),
-                created_at: created_user.created_at.into(),
+                created_at: created_user.created_at,
             },
             email_verification_required: true, // or based on config
             verification_email_sent: self.send_verification_email(&created_user).await?,
@@ -443,7 +453,7 @@ impl AuthService {
         Ok(())
     }
 
-    /// 密码重置请求
+        /// 密码重置请求
     #[instrument(skip(self, request))]
     pub async fn request_password_reset(&self, request: PasswordResetRequest) -> Result<(), AiStudioError> {
         info!(email = %request.email, "密码重置请求");
@@ -451,10 +461,17 @@ impl AuthService {
         // 查找用户
         let user = self.find_user_by_email(&request.email, Some(&request.tenant_slug)).await?;
 
-        // 生成重置令牌（这里应该实现实际的令牌生成和存储逻辑）
+        // 生成重置令牌
         let reset_token = Uuid::new_v4().to_string();
+        let expires_at = Utc::now() + Duration::hours(1);
 
-        // 发送重置邮件（这里应该实现实际的邮件发送逻辑）
+        // 更新用户信息
+        let mut user_active: user::ActiveModel = user.clone().into();
+        user_active.password_reset_token = Set(Some(reset_token.clone()));
+        user_active.password_reset_expires_at = Set(Some(expires_at));
+        user_active.update(&self.db).await?;
+
+        // 发送重置邮件
         self.send_password_reset_email(&user, &reset_token).await?;
 
         info!(user_id = %user.id, "密码重置邮件已发送");
@@ -484,7 +501,7 @@ impl AuthService {
                 user::Column::Username.eq(username_or_email)
                     .or(user::Column::Email.eq(username_or_email))
             )
-            .one(self.db.get_connection())
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::unauthorized("用户名或密码错误".to_string()))
     }
@@ -496,7 +513,7 @@ impl AuthService {
         if let Some(slug) = tenant_slug {
             let tenant = Tenant::find()
                 .filter(tenant::Column::Slug.eq(slug))
-                .one(self.db.get_connection())
+                .one(&self.db)
                 .await?
                 .ok_or_else(|| AiStudioError::not_found("租户"))?;
             
@@ -504,7 +521,7 @@ impl AuthService {
         }
 
         query
-            .one(self.db.get_connection())
+            .one(&self.db)
             .await?
             .ok_or_else(|| AiStudioError::not_found("用户"))
     }
@@ -551,10 +568,10 @@ impl AuthService {
             // status: Set(session::SessionStatus::Active),
             client_ip: Set(client_ip),
             user_agent: Set(user_agent),
-            expires_at: Set(expires_at.into()),
-            last_activity_at: Set(now.into()),
-            created_at: Set(now.into()),
-            updated_at: Set(now.into()),
+            expires_at: Set(expires_at),
+            last_activity_at: Set(now),
+            created_at: Set(now),
+            updated_at: Set(now),
             session_type: Set(session::SessionType::Api),
             status: Set(session::SessionStatus::Active),
             device_info: Set(serde_json::json!({})),
@@ -572,7 +589,7 @@ impl AuthService {
     async fn find_session_by_refresh_token(&self, refresh_token: &str) -> Result<session::Model, AiStudioError> {
         Session::find()
             .filter(session::Column::RefreshTokenHash.eq(refresh_token))
-            .one(self.db.get_connection())
+            .one(&self.db)
             .await
             .map_err(|e| AiStudioError::database(format!("查询会话失败: {}", e)))?
             .ok_or_else(|| AiStudioError::unauthorized("无效的刷新令牌".to_string()))
@@ -587,7 +604,7 @@ impl AuthService {
             .into();
 
         session.refresh_token_hash = Set(Some(new_refresh_token.to_string()));
-        session.last_activity_at = Set(Utc::now().into());
+        session.last_activity_at = Set(Utc::now());
 
         session.update(&self.db) // 使用 connection 字段
             .await?;
@@ -613,8 +630,8 @@ impl AuthService {
             .ok_or_else(|| AiStudioError::not_found("用户不存在".to_string()))?
             .into();
 
-        user.last_login_at = Set(Some(Utc::now().into()));
-        user.updated_at = Set(Utc::now().into());
+        user.last_login_at = Set(Some(Utc::now()));
+        user.updated_at = Set(Utc::now());
 
         user.update(&self.db).await?;
         Ok(())
@@ -655,7 +672,7 @@ impl AuthService {
     /// 验证密码强度
     fn validate_password_strength(&self, password: &str) -> Result<(), AiStudioError> {
         if password.len() < 8 {
-            return Err(AiStudioError::validation("password", "密码长度至少为 8 个字符"));
+            return Err(AiStudioError::validation("password", "密码长度至少为 8 个字符 "));
         }
 
         if !password.chars().any(|c| c.is_ascii_lowercase()) {
@@ -687,16 +704,86 @@ impl AuthService {
         Ok(())
     }
 
+    /// 获取用户信息
+    #[instrument(skip(self))]
+    pub async fn get_user_info(&self, user_id: Uuid) -> Result<UserInfo, AiStudioError> {
+        let user = User::find_by_id(user_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| AiStudioError::not_found("用户"))?;
+
+        let permissions = self.get_user_permissions(&user).await?;
+
+        Ok(UserInfo {
+            id: user.id,
+            tenant_id: user.tenant_id,
+            username: user.username,
+            email: user.email,
+            display_name: user.display_name,
+            avatar_url: user.avatar_url,
+            role: user.role.to_string(),
+            permissions,
+            last_login_at: user.last_login_at.map(|dt| dt.into()),
+            created_at: user.created_at,
+        })
+    }
+
+    /// 更新用户资料
+    #[instrument(skip(self, request))]
+    pub async fn update_user_profile(&self, user_id: Uuid, request: UpdateUserProfileRequest) -> Result<UserInfo, AiStudioError> {
+        let mut user: user::ActiveModel = User::find_by_id(user_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| AiStudioError::not_found("用户"))?
+            .into();
+
+        if let Some(display_name) = request.display_name {
+            user.display_name = Set(display_name);
+        }
+
+        if let Some(email) = request.email {
+            user.email = Set(email);
+        }
+
+        if let Some(avatar_url) = request.avatar_url {
+            user.avatar_url = Set(Some(avatar_url));
+        }
+
+        user.updated_at = Set(Utc::now().into());
+
+        let updated_user = user.update(&self.db).await?;
+
+        self.get_user_info(updated_user.id).await
+    }
+
+    async fn find_user_by_reset_token(&self, reset_token: &str) -> Result<user::Model, AiStudioError> {
+        User::find()
+            .filter(user::Column::PasswordResetToken.eq(reset_token))
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| AiStudioError::not_found("用户"))
+    }
+
     /// 确认密码重置
     #[instrument(skip(self, request))]
     pub async fn confirm_password_reset(&self, request: PasswordResetConfirmRequest) -> Result<(), AiStudioError> {
         info!("确认密码重置");
 
         // 查找用户
-        let user = self.find_user_by_email(&request.email, None).await?;
+        let user = self.find_user_by_reset_token(&request.reset_token).await?;
 
-        // 验证重置令牌（这里应该实现实际的令牌验证逻辑）
-        // 为了简化，这里跳过令牌验证
+        // 验证重置令牌
+        if user.password_reset_token.is_none() || user.password_reset_token != Some(request.reset_token.clone()) {
+            return Err(AiStudioError::unauthorized("无效的重置令牌".to_string()));
+        }
+
+        if let Some(expires_at) = user.password_reset_expires_at {
+            if expires_at < chrono::Utc::now() {
+                return Err(AiStudioError::unauthorized("重置令牌已过期".to_string()));
+            }
+        } else {
+            return Err(AiStudioError::unauthorized("无效的重置令牌".to_string()));
+        }
 
         // 验证新密码强度
         self.validate_password_strength(&request.new_password)?;
@@ -707,6 +794,8 @@ impl AuthService {
 
         let mut user_active: user::ActiveModel = user.into();
         user_active.password_hash = Set(password_hash);
+        user_active.password_reset_token = Set(None);
+        user_active.password_reset_expires_at = Set(None);
         user_active.updated_at = Set(Utc::now());
 
         user_active.update(&self.db).await?;

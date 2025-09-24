@@ -52,7 +52,7 @@ use crate::errors::AiStudioError;
         (status = 503, description = "系统不健康", body = SystemHealth)
     )
 )]
-pub async fn get_system_metrics(
+pub async fn get_system_health(
     _admin: AdminExtractor,
 ) -> ActixResult<HttpResponse> {
     let db_manager = DatabaseManager::get()
@@ -79,7 +79,7 @@ pub async fn get_system_metrics(
         (status = 404, description = "租户不存在", body = ApiError)
     )
 )]
-pub async fn get_service_status(
+pub async fn get_tenant_usage_stats(
     path: web::Path<Uuid>,
     query: web::Query<UsageStatsQuery>,
     _tenant_info: web::ReqData<TenantInfo>,

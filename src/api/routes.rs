@@ -65,8 +65,8 @@ use crate::services::tenant::TenantInfo;
         // rate_limit::delete_rate_limit,
         rate_limit::check_rate_limit,
         // 监控
-        monitoring::get_system_metrics,
-        monitoring::get_service_status,
+        monitoring::get_system_health,
+        monitoring::get_tenant_usage_stats,
         // 认证
         auth::login,
         auth::logout,

@@ -57,6 +57,8 @@ impl UserRepository {
             last_login_ip: Set(None),
             failed_login_attempts: Set(0),
             locked_until: Set(None),
+            password_reset_token: Set(None),
+            password_reset_expires_at: Set(None),
             created_at: Set(chrono::Utc::now().into()),
             updated_at: Set(chrono::Utc::now().into()),
         };
