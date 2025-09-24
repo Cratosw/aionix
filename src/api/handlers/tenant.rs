@@ -5,10 +5,11 @@ use uuid::Uuid;
 
 use crate::api::extractors::AdminExtractor;
 use crate::api::responses::HttpResponseBuilder;
-use crate::api::models::PaginationQuery;
+use crate::api::models::{PaginationQuery, PaginatedResponse};
 // use crate::api::middleware::tenant;
 use crate::services::tenant::{
-    TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter
+    TenantService, CreateTenantRequest, UpdateTenantRequest, TenantFilter,
+    TenantResponse, TenantStatsResponse
 };
 use crate::db::DatabaseManager;
 
@@ -48,9 +49,9 @@ use crate::db::DatabaseManager;
     tag = "tenant",
     request_body = CreateTenantRequest,
     responses(
-        (status = 201, description = "租户创建成功", body = TenantResponse),
-        (status = 400, description = "请求参数错误", body = ApiError),
-        (status = 409, description = "租户已存在", body = ApiError)
+        (status = 201, description = "租户创建成功", body = crate::services::tenant::TenantResponse),
+        (status = 400, description = "请求参数错误", body = crate::api::responses::ApiError),
+        (status = 409, description = "租户已存在", body = crate::api::responses::ApiError)
     )
 )]
 pub async fn create_tenant(
@@ -101,7 +102,7 @@ pub async fn get_tenant(
         TenantListQuery
     ),
     responses(
-        (status = 200, description = "租户列表", body = PaginatedResponse<TenantResponse>)
+        (status = 200, description = "租户列表", body = crate::api::models::PaginatedResponse<crate::services::tenant::TenantResponse>)
     )
 )]
 pub async fn list_tenants(
@@ -135,7 +136,10 @@ pub async fn list_tenants(
 
     let tenants = service.list_tenants(pagination_query, Some(filter)).await?;
 
-    HttpResponseBuilder::ok(tenants)
+    HttpResponseBuilder::ok(PaginatedResponse {
+        data: tenants.data.into_iter().map(|t| t).collect(),
+        pagination: tenants.pagination,
+    })
 }
 
 /// 更新租户
