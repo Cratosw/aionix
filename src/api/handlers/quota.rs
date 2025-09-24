@@ -39,8 +39,6 @@ use crate::errors::AiStudioError;
     get,
     path = "/quota/{tenant_id}/usage",
     tag = "quota",
-    summary = "获取配额使用统计",
-    description = "获取指定租户的配额使用统计信息",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -76,8 +74,6 @@ pub async fn get_quota_usage(
     get,
     path = "/quota/{tenant_id}/{quota_type}/check",
     tag = "quota",
-    summary = "检查配额",
-    description = "检查指定租户的特定配额是否可用",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID"),
         ("quota_type" = String, Path, description = "配额类型"),
@@ -119,8 +115,6 @@ pub async fn check_quota(
     put,
     path = "/quota/{tenant_id}",
     tag = "quota",
-    summary = "更新配额",
-    description = "更新指定租户的配额设置",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),

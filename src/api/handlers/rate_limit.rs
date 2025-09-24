@@ -35,8 +35,6 @@ use crate::errors::AiStudioError;
     get,
     path = "/rate-limit/stats",
     tag = "rate-limit",
-    summary = "获取限流统计",
-    description = "获取当前用户或 API 密钥的限流统计信息",
     responses(
         (status = 200, description = "限流统计信息", body = Vec<RateLimitStat>),
         (status = 401, description = "未认证", body = ApiError)
@@ -118,8 +116,6 @@ pub async fn get_rate_limits(
     post,
     path = "/rate-limit/check",
     tag = "rate-limit",
-    summary = "检查限流状态",
-    description = "检查指定操作是否受到限流限制",
     request_body = RateLimitCheckRequest,
     responses(
         (status = 200, description = "限流检查结果", body = RateLimitResult),

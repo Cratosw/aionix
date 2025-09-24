@@ -21,8 +21,6 @@ use crate::db::DatabaseManager;
     get,
     path = "/health",
     tag = "health",
-    summary = "健康检查",
-    description = "检查服务健康状态",
     responses(
         (status = 200, description = "服务健康", body = HealthResponse),
         (status = 503, description = "服务不可用", body = ApiError)

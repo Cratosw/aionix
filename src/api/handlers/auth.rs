@@ -13,12 +13,11 @@ use crate::db::DatabaseManager;
 use crate::errors::AiStudioError;
 use crate::api::extractors::AuthExtractor;
 
+///用户登录
 #[utoipa::path(
     post,
     path = "/auth/login",
     tag = "auth",
-    summary = "用户登录",
-    description = "用户登录认证",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "登录成功", body = LoginResponse),
@@ -48,12 +47,11 @@ pub async fn login(
     HttpResponseBuilder::ok(response)
 }
 
+///刷新令牌
 #[utoipa::path(
     post,
     path = "/auth/refresh",
     tag = "auth",
-    summary = "刷新令牌",
-    description = "使用刷新令牌获取新的访问令牌",
     request_body = RefreshTokenRequest,
     responses(
         (status = 200, description = "令牌刷新成功", body = LoginResponse),
@@ -76,12 +74,11 @@ pub async fn refresh_token(
     HttpResponseBuilder::ok(response)
 }
 
+///用户注册
 #[utoipa::path(
     post,
     path = "/auth/register",
     tag = "auth",
-    summary = "用户注册",
-    description = "注册新用户",
     request_body = RegisterRequest,
     responses(
         (status = 201, description = "注册成功", body = RegisterResponse),
@@ -105,12 +102,11 @@ pub async fn register(
     HttpResponseBuilder::created(response)
 }
 
+///用户登出
 #[utoipa::path(
     post,
     path = "/auth/logout",
     tag = "auth",
-    summary = "用户登出",
-    description = "用户登出并撤销令牌",
     request_body = RefreshTokenRequest,
     responses(
         (status = 204, description = "登出成功"),
@@ -133,12 +129,11 @@ pub async fn logout(
     HttpResponseBuilder::no_content()
 }
 
+///请求密码重置
 #[utoipa::path(
     post,
     path = "/auth/password-reset",
     tag = "auth",
-    summary = "请求密码重置",
-    description = "发送密码重置邮件",
     request_body = PasswordResetRequest,
     responses(
         (status = 204, description = "重置邮件已发送"),
@@ -161,12 +156,11 @@ pub async fn request_password_reset(
     HttpResponseBuilder::no_content()
 }
 
+///确认密码重置
 #[utoipa::path(
     post,
     path = "/auth/password-reset/confirm",
     tag = "auth",
-    summary = "确认密码重置",
-    description = "使用重置令牌设置新密码",
     request_body = PasswordResetConfirmRequest,
     responses(
         (status = 204, description = "密码重置成功"),
@@ -189,12 +183,11 @@ pub async fn confirm_password_reset(
     HttpResponseBuilder::no_content()
 }
 
+///获取当前用户信息
 #[utoipa::path(
     get,
     path = "/auth/me",
     tag = "auth",
-    summary = "获取当前用户信息",
-    description = "获取当前登录用户的详细信息",
     security(
         ("bearer_auth" = [])
     ),
@@ -209,12 +202,11 @@ pub async fn get_current_user(
     HttpResponseBuilder::ok(auth.user_info)
 }
 
+///更新用户资料
 #[utoipa::path(
     put,
     path = "/auth/profile",
     tag = "auth",
-    summary = "更新用户资料",
-    description = "更新当前用户的个人资料",
     security(
         ("bearer_auth" = [])
     ),

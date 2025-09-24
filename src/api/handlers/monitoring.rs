@@ -47,8 +47,6 @@ use crate::errors::AiStudioError;
     get,
     path = "/monitoring/system/health",
     tag = "monitoring",
-    summary = "获取系统健康状态",
-    description = "获取系统整体健康状态和各组件状态",
     responses(
         (status = 200, description = "系统健康状态", body = SystemHealth),
         (status = 503, description = "系统不健康", body = SystemHealth)
@@ -71,8 +69,6 @@ pub async fn get_system_metrics(
     get,
     path = "/monitoring/tenants/{tenant_id}/usage",
     tag = "monitoring",
-    summary = "获取租户使用统计",
-    description = "获取指定租户的使用统计信息",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID"),
         ("period_hours" = Option<i32>, Query, description = "统计周期（小时）")

@@ -46,8 +46,6 @@ use crate::db::DatabaseManager;
     post,
     path = "/tenants",
     tag = "tenant",
-    summary = "创建租户",
-    description = "创建新的租户",
     request_body = CreateTenantRequest,
     responses(
         (status = 201, description = "租户创建成功", body = TenantResponse),
@@ -72,8 +70,6 @@ pub async fn create_tenant(
     get,
     path = "/tenants/{tenant_id}",
     tag = "tenant",
-    summary = "获取租户详情",
-    description = "根据 ID 获取租户详细信息",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -100,8 +96,6 @@ pub async fn get_tenant(
     get,
     path = "/tenants",
     tag = "tenant",
-    summary = "获取租户列表",
-    description = "获取分页的租户列表",
     params(
         PaginationQuery,
         TenantListQuery
@@ -149,8 +143,6 @@ pub async fn list_tenants(
     put,
     path = "/tenants/{tenant_id}",
     tag = "tenant",
-    summary = "更新租户",
-    description = "更新租户信息",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -179,8 +171,6 @@ pub async fn update_tenant(
     delete,
     path = "/tenants/{tenant_id}",
     tag = "tenant",
-    summary = "删除租户",
-    description = "删除指定租户",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -207,8 +197,6 @@ pub async fn delete_tenant(
     get,
     path = "/tenants/{tenant_id}/stats",
     tag = "tenant",
-    summary = "获取租户统计",
-    description = "获取租户使用统计信息",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -234,8 +222,6 @@ pub async fn get_tenant_stats(
     post,
     path = "/tenants/{tenant_id}/suspend",
     tag = "tenant",
-    summary = "暂停租户",
-    description = "暂停指定租户",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
@@ -264,8 +250,6 @@ pub async fn suspend_tenant(
     post,
     path = "/tenants/{tenant_id}/activate",
     tag = "tenant",
-    summary = "激活租户",
-    description = "激活指定租户",
     params(
         ("tenant_id" = Uuid, Path, description = "租户 ID")
     ),
