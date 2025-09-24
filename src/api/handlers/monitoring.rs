@@ -5,7 +5,8 @@ use uuid::Uuid;
 
 use crate::api::extractors::AdminExtractor;
 use crate::api::responses::HttpResponseBuilder;
-use crate::api::middleware::{TenantInfo, AuthenticatedUser};
+use crate::api::middleware::tenant::TenantInfo;
+use crate::api::middleware::auth::AuthenticatedUser;
 use crate::services::monitoring::{
     MonitoringService, MetricType, MetricDataPoint
 };

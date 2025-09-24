@@ -10,8 +10,6 @@ pub mod tenant;
 // 明确导出需要的结构体
 pub use auth::{AuthenticatedUser, ApiKeyInfo};
 pub use quota::*;
-pub use rate_limit::*;
-pub use tenant::TenantInfo;
 
 /// 中间件配置助手
 pub struct MiddlewareConfig;
