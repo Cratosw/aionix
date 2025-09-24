@@ -80,7 +80,6 @@ use crate::services::tenant::TenantInfo;
     components(
         schemas(
             // 通用响应
-            crate::api::responses::ApiResponse<_>,
             crate::api::responses::ApiError,
             
             // 版本信息

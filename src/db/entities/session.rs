@@ -74,24 +74,24 @@ pub struct Model {
     pub metadata: Json,
     
     /// 会话过期时间
-    pub expires_at: DateTime,
+    pub expires_at: DateTimeWithTimeZone,
     
     /// 刷新令牌过期时间
     #[sea_orm(nullable)]
-    pub refresh_expires_at: Option<DateTime>,
+    pub refresh_expires_at: Option<DateTimeWithTimeZone>,
     
     /// 最后活跃时间
-    pub last_activity_at: DateTime,
+    pub last_activity_at: DateTimeWithTimeZone,
     
     /// 最后访问的 URL
     #[sea_orm(column_type = "String(Some(1000))", nullable)]
     pub last_url: Option<String>,
     
     /// 创建时间
-    pub created_at: DateTime,
+    pub created_at: DateTimeWithTimeZone,
     
     /// 更新时间
-    pub updated_at: DateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 /// 会话关联关系
@@ -205,13 +205,13 @@ impl Model {
     
     /// 检查会话是否过期
     pub fn is_expired(&self) -> bool {
-        chrono::Utc::now() > self.expires_at
+        chrono::Utc::now() > self.expires_at.with_timezone(&chrono::Utc)
     }
     
     /// 检查刷新令牌是否过期
     pub fn is_refresh_token_expired(&self) -> bool {
         if let Some(refresh_expires_at) = self.refresh_expires_at {
-            chrono::Utc::now() > refresh_expires_at
+            chrono::Utc::now() > refresh_expires_at.with_timezone(&chrono::Utc)
         } else {
             true
         }
@@ -242,7 +242,7 @@ impl Model {
     pub fn remaining_time(&self) -> i64 {
         let now = chrono::Utc::now();
         let expires_utc = self.expires_at.with_timezone(&chrono::Utc);
-        if now > expires_utc {
+        if chrono::Utc::now() > expires_utc {
             0
         } else {
             (expires_utc - now).num_seconds()

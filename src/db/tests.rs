@@ -85,18 +85,20 @@ mod tests {
 
     #[test]
     fn test_migration_status() {
-        let now = chrono::Utc::now().naive_utc();
+        let now = chrono::Utc::now();
         let status = crate::db::MigrationStatus {
             name: "test_migration".to_string(),
-            version: 20240101000001, // 假设版本是数字而非字符串
-            applied_at: now,
+            version: "20240101000001".to_string(), // Fixed: version should be String
+            applied_at: Some(now), // Fixed: applied_at should be Option<DateTime<Utc>>
             checksum: "dummy_checksum".to_string(),
+            is_applied: true, // Added: missing field
         };
 
         assert_eq!(status.name, "test_migration");
-        assert_eq!(status.version, 20240101000001);
-        assert_eq!(status.applied_at, now);
+        assert_eq!(status.version, "20240101000001");
+        assert_eq!(status.applied_at.unwrap(), now);
         assert_eq!(status.checksum, "dummy_checksum");
+        assert_eq!(status.is_applied, true);
     }
 
     #[test]

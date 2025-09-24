@@ -100,14 +100,14 @@ pub struct Model {
     
     /// 邮箱验证时间
     #[sea_orm(nullable)]
-    pub email_verified_at: Option<DateTime>,
+    pub email_verified_at: Option<DateTimeWithTimeZone>,
     
     /// 手机验证状态
     pub phone_verified: bool,
     
     /// 手机验证时间
     #[sea_orm(nullable)]
-    pub phone_verified_at: Option<DateTime>,
+    pub phone_verified_at: Option<DateTimeWithTimeZone>,
     
     /// 两步验证启用状态
     pub two_factor_enabled: bool,
@@ -118,7 +118,7 @@ pub struct Model {
     
     /// 最后登录时间
     #[sea_orm(nullable)]
-    pub last_login_at: Option<DateTime>,
+    pub last_login_at: Option<DateTimeWithTimeZone>,
     
     /// 最后登录 IP
     #[sea_orm(column_type = "String(Some(45))", nullable)]
@@ -129,7 +129,7 @@ pub struct Model {
     
     /// 账户锁定时间
     #[sea_orm(nullable)]
-    pub locked_until: Option<DateTime>,
+    pub locked_until: Option<DateTimeWithTimeZone>,
 
     /// 密码重置令牌
     #[sea_orm(column_type = "String(Some(255))", nullable)]
@@ -137,13 +137,13 @@ pub struct Model {
 
     /// 密码重置令牌过期时间
     #[sea_orm(nullable)]
-    pub password_reset_expires_at: Option<DateTime>,
+    pub password_reset_expires_at: Option<DateTimeWithTimeZone>,
     
     /// 创建时间
-    pub created_at: DateTime,
+    pub created_at: DateTimeWithTimeZone,
     
     /// 更新时间
-    pub updated_at: DateTime,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 /// 用户关联关系
@@ -312,7 +312,7 @@ impl Model {
     /// 检查用户是否被锁定
     pub fn is_locked(&self) -> bool {
         if let Some(locked_until) = self.locked_until {
-            chrono::Utc::now().naive_utc() < locked_until.naive_utc()
+            chrono::Utc::now().naive_utc() < locked_until.naive_utc().into()
         } else {
             false
         }

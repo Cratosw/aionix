@@ -269,7 +269,7 @@ impl AuthService {
                 role: user.role.to_string(),
                 permissions: self.get_user_permissions(&user).await?,
                 last_login_at: user.last_login_at.map(|dt| dt.into()),
-                created_at: user.created_at,
+                created_at: user.created_at.into(),
             },
             tenant: TenantInfo {
                 id: tenant.id,
@@ -291,8 +291,8 @@ impl AuthService {
 
         // 检查会话是否过期
         {
-            let expires_utc: chrono::DateTime<chrono::Utc> = session.expires_at;
-            if expires_utc < chrono::Utc::now() {
+            let expires_utc: chrono::DateTime<chrono::FixedOffset> = session.expires_at.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+            if expires_utc < chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()) {
                 return Err(AiStudioError::unauthorized("刷新令牌已过期".to_string()));
             }
         }
@@ -412,8 +412,8 @@ impl AuthService {
             two_factor_secret: Set(None),
             password_reset_token: Set(None),
             password_reset_expires_at: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
+            created_at: Set(now.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
+            updated_at: Set(now.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
         };
 
         let created_user = user.insert(&self.db) // 使用 connection 字段
@@ -434,7 +434,7 @@ impl AuthService {
                 role: created_user.role.to_string(),
                 permissions: self.get_user_permissions(&created_user).await?,
                 last_login_at: created_user.last_login_at.map(|dt| dt.into()),
-                created_at: created_user.created_at,
+                created_at: created_user.created_at.into(),
             },
             email_verification_required: true, // or based on config
             verification_email_sent: self.send_verification_email(&created_user).await?,
@@ -468,7 +468,7 @@ impl AuthService {
         // 更新用户信息
         let mut user_active: user::ActiveModel = user.clone().into();
         user_active.password_reset_token = Set(Some(reset_token.clone()));
-        user_active.password_reset_expires_at = Set(Some(expires_at));
+        user_active.password_reset_expires_at = Set(Some(expires_at.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())));
         user_active.update(&self.db).await?;
 
         // 发送重置邮件
@@ -568,10 +568,10 @@ impl AuthService {
             // status: Set(session::SessionStatus::Active),
             client_ip: Set(client_ip),
             user_agent: Set(user_agent),
-            expires_at: Set(expires_at),
-            last_activity_at: Set(now),
-            created_at: Set(now),
-            updated_at: Set(now),
+            expires_at: Set(expires_at.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
+            last_activity_at: Set(now.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
+            created_at: Set(now.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
+            updated_at: Set(now.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())),
             session_type: Set(session::SessionType::Api),
             status: Set(session::SessionStatus::Active),
             device_info: Set(serde_json::json!({})),
@@ -604,7 +604,7 @@ impl AuthService {
             .into();
 
         session.refresh_token_hash = Set(Some(new_refresh_token.to_string()));
-        session.last_activity_at = Set(Utc::now());
+        session.last_activity_at = Set(Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()));
 
         session.update(&self.db) // 使用 connection 字段
             .await?;
@@ -630,8 +630,8 @@ impl AuthService {
             .ok_or_else(|| AiStudioError::not_found("用户不存在".to_string()))?
             .into();
 
-        user.last_login_at = Set(Some(Utc::now()));
-        user.updated_at = Set(Utc::now());
+        user.last_login_at = Set(Some(Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())));
+        user.updated_at = Set(Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()));
 
         user.update(&self.db).await?;
         Ok(())
@@ -724,7 +724,7 @@ impl AuthService {
             role: user.role.to_string(),
             permissions,
             last_login_at: user.last_login_at.map(|dt| dt.into()),
-            created_at: user.created_at,
+            created_at: user.created_at.into(),
         })
     }
 
@@ -778,7 +778,7 @@ impl AuthService {
         }
 
         if let Some(expires_at) = user.password_reset_expires_at {
-            if expires_at < chrono::Utc::now() {
+            if expires_at.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()) < chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()) {
                 return Err(AiStudioError::unauthorized("重置令牌已过期".to_string()));
             }
         } else {
@@ -796,7 +796,7 @@ impl AuthService {
         user_active.password_hash = Set(password_hash);
         user_active.password_reset_token = Set(None);
         user_active.password_reset_expires_at = Set(None);
-        user_active.updated_at = Set(Utc::now());
+        user_active.updated_at = Set(Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()));
 
         user_active.update(&self.db).await?;
 

@@ -18,7 +18,7 @@ use sea_orm::DatabaseConnection;
 pub struct TenantQuotaChecker;
 
 impl TenantQuotaChecker {
-    pub async fn check_quota(_db: &DatabaseManager, _tenant_id: Uuid, _resource_type: &str, _requested_amount: i64) -> Result<bool, AiStudioError> {
+    pub async fn check_quota(_db: &DatabaseConnection, _tenant_id: Uuid, _resource_type: &str, _requested_amount: i64) -> Result<bool, AiStudioError> {
         // 简化的实现，实际应该根据数据库查询结果返回
         Ok(true)
     }
@@ -28,7 +28,7 @@ impl TenantQuotaChecker {
 pub struct TenantStatsQuery;
 
 impl TenantStatsQuery {
-    pub async fn get_stats(_db: &DatabaseManager, _tenant_id: Uuid) -> Result<tenant::TenantUsageStats, AiStudioError> {
+    pub async fn get_stats(_db: &DatabaseConnection, _tenant_id: Uuid) -> Result<tenant::TenantUsageStats, AiStudioError> {
         // 简化的实现，实际应该从数据库获取统计信息
         Ok(tenant::TenantUsageStats::default())
     }

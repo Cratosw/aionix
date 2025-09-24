@@ -1,6 +1,6 @@
 // 租户管理 API 处理器
 
-use actix_web::{web, HttpResponse, Result as ActixResult};
+use actix_web::{web, HttpResponse, Result as ActixResult, HttpRequest};
 use uuid::Uuid;
 
 use crate::api::extractors::{AdminExtractor, PaginationExtractor};
@@ -296,10 +296,36 @@ pub async fn check_tenant_quota(
     HttpResponseBuilder::ok(response)
 }
 
+/// 根据标识符获取租户详情
+#[utoipa::path(
+    get,
+    path = "/tenants/by-slug/{slug}",
+    tag = "tenant",
+    params(
+        ("slug" = String, Path, description = "租户标识符")
+    ),
+    responses(
+        (status = 200, description = "租户信息", body = TenantResponse),
+        (status = 404, description = "租户不存在", body = ApiError)
+    )
+)]
+pub async fn get_tenant_by_slug(
+    _req: HttpRequest,
+    path: web::Path<String>,
+) -> ActixResult<HttpResponse> {
+    let slug = path.into_inner();
+    let db_manager = DatabaseManager::get()?;
+    let service = TenantService::new(db_manager.get_connection().clone());
+
+    let tenant = service.get_tenant_by_slug(&slug).await?;
+
+    HttpResponseBuilder::ok(tenant)
+}
+
 // 辅助结构体
 
 /// 租户列表查询参数
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::IntoParams)]
 pub struct TenantListQuery {
     pub status: Option<String>,
     pub name_search: Option<String>,
@@ -315,7 +341,7 @@ pub struct SuspendTenantRequest {
 }
 
 /// 配额检查查询参数
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, utoipa::IntoParams)]
 pub struct QuotaCheckQuery {
     pub requested_amount: Option<i64>,
 }

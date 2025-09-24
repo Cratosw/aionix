@@ -20,7 +20,7 @@ pub struct ApiVersion {
 }
 
 /// 分页请求参数
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct PaginationQuery {
     /// 页码，从 1 开始
     #[serde(default = "default_page")]
