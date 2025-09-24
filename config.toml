@@ -10,7 +10,7 @@ client_timeout = 5000
 client_shutdown = 5000
 
 [database]
-url = "postgresql://username:password@localhost:5432/aionix"
+url = "postgresql://postgres:657603891@122.51.187.238:5432/aionix"
 max_connections = 10
 min_connections = 1
 connect_timeout = 30
@@ -26,7 +26,7 @@ timeout = 30
 retry_attempts = 3
 
 [redis]
-url = "redis://localhost:6379"
+url = "redis://122.51.187.238:6379"
 max_connections = 10
 connection_timeout = 5
 response_timeout = 5
