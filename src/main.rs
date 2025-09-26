@@ -80,11 +80,13 @@ async fn main() -> std::io::Result<()> {
             .route("/health", web::get().to(health::health_check));
 
         // 根据环境配置不同的路由
-        if cfg!(debug_assertions) {
+        let app = if cfg!(debug_assertions) {
             app.configure(ApiRouteConfig::configure_dev)
         } else {
             app.configure(ApiRouteConfig::configure_prod)
-        }
+        };
+
+        app
     });
 
     // 配置服务器参数

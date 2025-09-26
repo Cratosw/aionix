@@ -209,6 +209,11 @@ pub fn configure_swagger_ui(cfg: &mut web::ServiceConfig) {
     cfg.service(
         utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs/{_:.*}")
             .url("/api/v1/openapi.json", ApiDoc::openapi())
+    )
+    // 添加根级别的 docs 路由重定向
+    .service(
+        utoipa_swagger_ui::SwaggerUi::new("/docs/{_:.*}")
+            .url("/api/v1/openapi.json", ApiDoc::openapi())
     );
 }
 
