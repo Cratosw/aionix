@@ -335,10 +335,21 @@ impl MigrationManager {
 
     /// 执行 SQL 语句
     async fn execute_sql(&self, sql: &str) -> Result<(), AiStudioError> {
-        self.db.execute(Statement::from_string(
-            sea_orm::DatabaseBackend::Postgres,
-            sql.to_string(),
-        )).await?;
+        // 分割 SQL 语句，逐条执行
+        let statements: Vec<&str> = sql
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for statement in statements {
+            if !statement.is_empty() {
+                self.db.execute(Statement::from_string(
+                    sea_orm::DatabaseBackend::Postgres,
+                    statement.to_string(),
+                )).await?;
+            }
+        }
         Ok(())
     }
 
@@ -348,10 +359,21 @@ impl MigrationManager {
         txn: &sea_orm::DatabaseTransaction,
         sql: &str,
     ) -> Result<(), AiStudioError> {
-        txn.execute(Statement::from_string(
-            sea_orm::DatabaseBackend::Postgres,
-            sql.to_string(),
-        )).await?;
+        // 分割 SQL 语句，逐条执行
+        let statements: Vec<&str> = sql
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for statement in statements {
+            if !statement.is_empty() {
+                txn.execute(Statement::from_string(
+                    sea_orm::DatabaseBackend::Postgres,
+                    statement.to_string(),
+                )).await?;
+            }
+        }
         Ok(())
     }
 
