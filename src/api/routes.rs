@@ -201,7 +201,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
 /// 获取 OpenAPI 规范
 async fn get_openapi_spec() -> ActixResult<HttpResponse> {
     let openapi = ApiDoc::openapi();
-    HttpResponseBuilder::ok(openapi)
+    // 直接返回 OpenAPI 规范，不包装在响应格式中
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .json(openapi))
 }
 
 /// 配置 Swagger UI
