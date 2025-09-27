@@ -23,7 +23,7 @@ pub enum TaskStatus {
 }
 
 /// 任务类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, Hash, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskType {
     BatchDocumentDelete,
@@ -130,7 +130,7 @@ impl TaskQueueService {
         
         let task = TaskInfo {
             id: task_id,
-            task_type,
+            task_type: task_type.clone(),
             tenant_id,
             status: TaskStatus::Pending,
             parameters,

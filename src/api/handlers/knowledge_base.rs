@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
-use crate::api::responses::{ApiResponse, ApiError};
+use crate::api::responses::{ApiResponse, ApiError, SuccessResponse, ErrorResponse, HttpResponseBuilder};
 use crate::api::extractors::{TenantContext, UserContext};
 use crate::db::entities::{knowledge_base, prelude::*};
 use crate::errors::AiStudioError;
