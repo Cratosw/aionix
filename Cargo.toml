@@ -104,5 +104,8 @@ md5 = "0.7"
 # 正则表达式
 regex = "1.0"
 
+# 临时文件（用于测试）
+tempfile = "3.0"
+
 # 本地包
 aionix-common = { path = "./packages/common" }
