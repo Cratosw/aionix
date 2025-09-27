@@ -11,7 +11,8 @@ use sea_orm::{EntityTrait, ColumnTrait, QueryFilter, ActiveModelTrait, QuerySele
 use crate::errors::AiStudioError;
 use crate::db::entities::{Tenant, tenant, user};
 use crate::db::DatabaseManager;
-use crate::api::{PaginationQuery, PaginatedResponse, PaginationInfo};
+use crate::api::{PaginationQuery, PaginatedResponse};
+use crate::api::models::PaginationInfo;
 use sea_orm::DatabaseConnection;
 
 // 租户配额检查器

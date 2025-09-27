@@ -396,6 +396,54 @@ pub trait Tool {
     ) -> Result<(), AiStudioError>;
 }
 
+/// 工具枚举，用于解决 trait object 安全问题
+#[derive(Debug, Clone)]
+pub enum ToolEnum {
+    SearchTool(crate::ai::tools::search_tool::SearchTool),
+    CalculatorTool(crate::ai::tools::calculator_tool::CalculatorTool),
+    FileTool(crate::ai::tools::file_tool::FileTool),
+    HttpTool(crate::ai::tools::http_tool::HttpTool),
+}
+
+impl ToolEnum {
+    /// 执行工具
+    pub async fn execute(
+        &self,
+        parameters: HashMap<String, serde_json::Value>,
+        context: &ExecutionContext,
+    ) -> Result<ToolResult, AiStudioError> {
+        match self {
+            ToolEnum::SearchTool(tool) => tool.execute(parameters, context).await,
+            ToolEnum::CalculatorTool(tool) => tool.execute(parameters, context).await,
+            ToolEnum::FileTool(tool) => tool.execute(parameters, context).await,
+            ToolEnum::HttpTool(tool) => tool.execute(parameters, context).await,
+        }
+    }
+    
+    /// 获取工具元数据
+    pub fn metadata(&self) -> ToolMetadata {
+        match self {
+            ToolEnum::SearchTool(tool) => tool.metadata(),
+            ToolEnum::CalculatorTool(tool) => tool.metadata(),
+            ToolEnum::FileTool(tool) => tool.metadata(),
+            ToolEnum::HttpTool(tool) => tool.metadata(),
+        }
+    }
+    
+    /// 验证参数
+    pub fn validate_parameters(
+        &self,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> Result<(), AiStudioError> {
+        match self {
+            ToolEnum::SearchTool(tool) => tool.validate_parameters(parameters),
+            ToolEnum::CalculatorTool(tool) => tool.validate_parameters(parameters),
+            ToolEnum::FileTool(tool) => tool.validate_parameters(parameters),
+            ToolEnum::HttpTool(tool) => tool.validate_parameters(parameters),
+        }
+    }
+}
+
 /// 工具执行结果
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolResult {

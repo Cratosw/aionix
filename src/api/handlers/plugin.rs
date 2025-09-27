@@ -61,7 +61,7 @@ pub struct PluginControlRequest {
 }
 
 /// 插件操作类型
-#[derive(Debug, Deserialize, ToSchema, PartialEq)]
+#[derive(Debug, Deserialize, ToSchema, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PluginAction {
     Start,
@@ -140,7 +140,7 @@ pub async fn uninstall_plugin(
             error!("插件卸载失败: {} - {}", plugin_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -213,7 +213,7 @@ pub async fn get_plugin_info(
             error!("获取插件信息失败: {} - {}", plugin_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -287,8 +287,8 @@ pub async fn call_plugin(
                    request.plugin_id, request.method, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
-                AiStudioError::Validation(_) => HttpResponse::BadRequest(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
+                AiStudioError::Validation { field: _, message: _ } => HttpResponse::BadRequest(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -334,7 +334,7 @@ pub async fn control_plugin(
         PluginAction::Restart => plugin_manager.restart_plugin(&plugin_id).await,
         PluginAction::Reload => {
             // TODO: 实现插件重新加载
-            Err(AiStudioError::not_implemented("插件重新加载暂未实现"))
+            Err(AiStudioError::internal("插件重新加载暂未实现"))
         }
     };
     
@@ -356,8 +356,8 @@ pub async fn control_plugin(
             error!("插件控制失败: {} - {:?} - {}", plugin_id, request.action, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
-                AiStudioError::Validation(_) => HttpResponse::BadRequest(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
+                AiStudioError::Validation { field: _, message: _ } => HttpResponse::BadRequest(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -426,8 +426,8 @@ pub async fn update_plugin_config(
             error!("插件配置更新失败: {} - {}", plugin_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
-                AiStudioError::Validation(_) => HttpResponse::BadRequest(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
+                AiStudioError::Validation { field: _, message: _ } => HttpResponse::BadRequest(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -536,7 +536,7 @@ pub async fn get_plugin_logs(
             error!("获取插件日志失败: {} - {}", plugin_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -583,7 +583,7 @@ pub async fn cleanup_plugin_data(
             error!("插件数据清理失败: {} - {}", plugin_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             

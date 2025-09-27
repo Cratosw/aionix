@@ -12,6 +12,7 @@ use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext}
 use crate::errors::AiStudioError;
 
 /// HTTP 请求工具
+#[derive(Debug, Clone)]
 pub struct HttpTool {
     /// HTTP 客户端
     client: Client,
@@ -268,7 +269,7 @@ impl HttpTool {
     ) -> Result<serde_json::Value, AiStudioError> {
         // 解析 HTTP 方法
         let http_method = Method::from_bytes(method.as_bytes()).map_err(|e| {
-            AiStudioError::validation(&format!("无效的 HTTP 方法: {}", e))
+            AiStudioError::validation("method".to_string(), &format!("无效的 HTTP 方法: {}", e))
         })?;
         
         // 构建请求
@@ -305,7 +306,7 @@ impl HttpTool {
         debug!("发送 HTTP 请求: {} {}", method, url);
         let response = request_builder.send().await.map_err(|e| {
             error!("HTTP 请求失败: {}", e);
-            AiStudioError::external(format!("HTTP 请求失败: {}", e))
+            AiStudioError::external_service("http".to_string(), format!("HTTP 请求失败: {}", e))
         })?;
         
         // 处理响应
@@ -325,7 +326,7 @@ impl HttpTool {
         // 检查内容长度
         if let Some(content_length) = response.content_length() {
             if content_length > self.config.max_response_size {
-                return Err(AiStudioError::validation(&format!(
+                return Err(AiStudioError::validation("response_size".to_string(), &format!(
                     "响应太大: {} 字节，最大允许: {} 字节",
                     content_length,
                     self.config.max_response_size
@@ -336,7 +337,7 @@ impl HttpTool {
         // 获取响应体
         let response_bytes = response.bytes().await.map_err(|e| {
             error!("读取响应体失败: {}", e);
-            AiStudioError::external(format!("读取响应体失败: {}", e))
+            AiStudioError::external_service("http".to_string(), format!("读取响应体失败: {}", e))
         })?;
         
         // 检查响应大小

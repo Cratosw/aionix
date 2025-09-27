@@ -10,13 +10,13 @@ use tracing::{info, warn, error, debug};
 use tokio::sync::RwLock;
 use async_trait::async_trait;
 
-use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext};
+use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext, ToolEnum};
 use crate::errors::AiStudioError;
 
 /// 工具管理器
 pub struct ToolManager {
     /// 注册的工具
-    tools: Arc<RwLock<HashMap<String, Arc<dyn Tool + Send + Sync>>>>,
+    tools: Arc<RwLock<HashMap<String, ToolEnum>>>,
     /// 工具元数据
     metadata: Arc<RwLock<HashMap<String, ToolMetadata>>>,
     /// 工具使用统计
@@ -223,7 +223,7 @@ impl ToolManager {
     /// 注册工具
     pub async fn register_tool(
         &self,
-        tool: Arc<dyn Tool + Send + Sync>,
+        tool: ToolEnum,
         permissions: Option<ToolPermissions>,
     ) -> Result<(), AiStudioError> {
         let metadata = tool.metadata();
@@ -515,7 +515,7 @@ impl ToolManager {
         
         // 检查工具是否启用
         if !tool_permissions.enabled {
-            return Err(AiStudioError::permission_denied(&format!("工具已禁用: {}", request.tool_name)));
+            return Err(AiStudioError::forbidden(&format!("工具已禁用: {}", request.tool_name)));
         }
         
         // 检查租户权限
@@ -525,11 +525,11 @@ impl ToolManager {
             
             if !tool_permissions.allowed_tenants.is_empty() && 
                !tool_permissions.allowed_tenants.contains(&tenant_id) {
-                return Err(AiStudioError::permission_denied("租户无权限使用此工具"));
+                return Err(AiStudioError::forbidden("租户无权限使用此工具"));
             }
             
             if tool_permissions.blocked_tenants.contains(&tenant_id) {
-                return Err(AiStudioError::permission_denied("租户被禁止使用此工具"));
+                return Err(AiStudioError::forbidden("租户被禁止使用此工具"));
             }
         }
         
@@ -537,11 +537,11 @@ impl ToolManager {
         if let Some(user_id) = request.context.user_id {
             if !tool_permissions.allowed_users.is_empty() && 
                !tool_permissions.allowed_users.contains(&user_id) {
-                return Err(AiStudioError::permission_denied("用户无权限使用此工具"));
+                return Err(AiStudioError::forbidden("用户无权限使用此工具"));
             }
             
             if tool_permissions.blocked_users.contains(&user_id) {
-                return Err(AiStudioError::permission_denied("用户被禁止使用此工具"));
+                return Err(AiStudioError::forbidden("用户被禁止使用此工具"));
             }
         }
         

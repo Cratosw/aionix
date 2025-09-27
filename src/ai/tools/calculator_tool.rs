@@ -9,6 +9,7 @@ use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext}
 use crate::errors::AiStudioError;
 
 /// 计算器工具
+#[derive(Debug, Clone)]
 pub struct CalculatorTool {
     /// 支持的操作
     supported_operations: Vec<String>,

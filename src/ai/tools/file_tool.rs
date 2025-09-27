@@ -11,6 +11,7 @@ use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext}
 use crate::errors::AiStudioError;
 
 /// 文件操作工具
+#[derive(Debug, Clone)]
 pub struct FileTool {
     /// 工具配置
     config: FileToolConfig,
@@ -224,7 +225,7 @@ impl FileTool {
         // 检查文件大小
         let metadata = fs::metadata(&full_path).await.map_err(|e| {
             error!("获取文件元数据失败: {}", e);
-            AiStudioError::io(format!("获取文件元数据失败: {}", e))
+            AiStudioError::internal(format!("获取文件元数据失败: {}", e))
         })?;
         
         if metadata.len() > self.config.max_file_size {
@@ -238,7 +239,7 @@ impl FileTool {
         // 读取文件内容
         let content = fs::read_to_string(&full_path).await.map_err(|e| {
             error!("读取文件失败: {}", e);
-            AiStudioError::io(format!("读取文件失败: {}", e))
+            AiStudioError::internal(format!("读取文件失败: {}", e))
         })?;
         
         Ok(serde_json::json!({
@@ -276,14 +277,14 @@ impl FileTool {
         if let Some(parent) = full_path.parent() {
             fs::create_dir_all(parent).await.map_err(|e| {
                 error!("创建目录失败: {}", e);
-                AiStudioError::io(format!("创建目录失败: {}", e))
+                AiStudioError::internal(format!("创建目录失败: {}", e))
             })?;
         }
         
         // 写入文件
         fs::write(&full_path, content).await.map_err(|e| {
             error!("写入文件失败: {}", e);
-            AiStudioError::io(format!("写入文件失败: {}", e))
+            AiStudioError::internal(format!("写入文件失败: {}", e))
         })?;
         
         Ok(serde_json::json!({
@@ -309,16 +310,16 @@ impl FileTool {
         if full_path.exists() {
             let metadata = fs::metadata(&full_path).await.map_err(|e| {
                 error!("获取文件元数据失败: {}", e);
-                AiStudioError::io(format!("获取文件元数据失败: {}", e))
+                AiStudioError::internal(format!("获取文件元数据失败: {}", e))
             })?;
             
             let new_size = metadata.len() + content.len() as u64;
             if new_size > self.config.max_file_size {
-                return Err(AiStudioError::validation(&format!(
-                    "追加后文件将太大: {} 字节，最大允许: {} 字节",
-                    new_size,
-                    self.config.max_file_size
-                )));
+            return Err(AiStudioError::validation("file_size".to_string(), &format!(
+                "追加后文件将太大: {} 字节，最大允许: {} 字节",
+                new_size,
+                self.config.max_file_size
+            )));
             }
         }
         
@@ -331,12 +332,12 @@ impl FileTool {
             .await
             .map_err(|e| {
                 error!("打开文件失败: {}", e);
-                AiStudioError::io(format!("打开文件失败: {}", e))
+                AiStudioError::internal(format!("打开文件失败: {}", e))
             })?;
         
         file.write_all(content.as_bytes()).await.map_err(|e| {
             error!("追加文件失败: {}", e);
-            AiStudioError::io(format!("追加文件失败: {}", e))
+            AiStudioError::internal(format!("追加文件失败: {}", e))
         })?;
         
         Ok(serde_json::json!({
@@ -362,18 +363,18 @@ impl FileTool {
         }
         
         if !full_path.is_dir() {
-            return Err(AiStudioError::validation(&format!("路径不是目录: {}", path)));
+            return Err(AiStudioError::validation("path".to_string(), &format!("路径不是目录: {}", path)));
         }
         
         let mut entries = Vec::new();
         let mut dir = fs::read_dir(&full_path).await.map_err(|e| {
             error!("读取目录失败: {}", e);
-            AiStudioError::io(format!("读取目录失败: {}", e))
+            AiStudioError::internal(format!("读取目录失败: {}", e))
         })?;
         
         while let Some(entry) = dir.next_entry().await.map_err(|e| {
             error!("读取目录条目失败: {}", e);
-            AiStudioError::io(format!("读取目录条目失败: {}", e))
+            AiStudioError::internal(format!("读取目录条目失败: {}", e))
         })? {
             let metadata = entry.metadata().await.map_err(|e| {
                 warn!("获取条目元数据失败: {}", e);
@@ -437,7 +438,7 @@ impl FileTool {
         
         let metadata = fs::metadata(&full_path).await.map_err(|e| {
             error!("获取文件元数据失败: {}", e);
-            AiStudioError::io(format!("获取文件元数据失败: {}", e))
+            AiStudioError::internal(format!("获取文件元数据失败: {}", e))
         })?;
         
         Ok(serde_json::json!({

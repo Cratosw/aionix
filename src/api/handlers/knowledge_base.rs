@@ -1,7 +1,7 @@
 // 知识库管理 API 处理器
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait, QuerySelect};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait, QuerySelect, ActiveModelTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
-use crate::api::responses::{ApiResponse, ApiError, SuccessResponse, ErrorResponse, HttpResponseBuilder};
+use crate::api::responses::{ApiResponse, ApiError, SuccessResponse, ErrorResponse, HttpResponseBuilder, ApiResponseExt};
 use crate::api::extractors::{TenantContext, UserContext};
 use crate::db::entities::{knowledge_base, prelude::*};
 use crate::errors::AiStudioError;
@@ -499,7 +499,7 @@ pub async fn update_knowledge_base(
             
             if existing.is_some() {
                 warn!("知识库名称已存在: {}", new_name);
-                return Ok(ErrorResponse::conflict::<()>("知识库名称已存在").into_http_response()?);
+                return Ok(ErrorResponse::conflict::<()>("知识库名称已存在".to_string()).into_http_response()?);
             }
         }
     }
@@ -608,7 +608,7 @@ pub async fn delete_knowledge_base(
     // 检查是否包含文档
     if kb.document_count > 0 {
         warn!("知识库包含文档，无法删除: id={}, 文档数={}", kb_id, kb.document_count);
-        return Ok(ErrorResponse::conflict::<()>("知识库包含文档，请先删除所有文档").into_http_response()?);
+                return Ok(ErrorResponse::conflict::<()>("知识库包含文档，请先删除所有文档".to_string()).into_http_response()?);
     }
     
     // 执行删除
@@ -737,7 +737,7 @@ pub async fn reindex_knowledge_base(
     // 检查知识库状态
     if kb.is_processing() {
         warn!("知识库正在处理中，无法重新索引: id={}", kb_id);
-        return Ok(ErrorResponse::conflict::<()>("知识库正在处理中，请稍后再试").into_http_response()?);
+                return Ok(ErrorResponse::conflict::<()>("知识库正在处理中，请稍后再试".to_string()).into_http_response()?);
     }
     
     // 更新知识库状态为处理中

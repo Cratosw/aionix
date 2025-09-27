@@ -507,7 +507,7 @@ impl WorkflowEngine {
         
         // 解析 JSON
         let workflow: WorkflowDefinition = serde_json::from_str(workflow_json)
-            .map_err(|e| AiStudioError::validation(format!("工作流 JSON 解析失败: {}", e)))?;
+            .map_err(|e| AiStudioError::validation("workflow_json".to_string(), format!("工作流 JSON 解析失败: {}", e)))?;
         
         // 验证工作流
         let validation_result = self.validate_workflow(&workflow).await?;
@@ -517,8 +517,8 @@ impl WorkflowEngine {
                 .iter()
                 .map(|e| e.message.clone())
                 .collect();
-            return Err(AiStudioError::validation(format!(
-                "工作流验证失败: {}", 
+            return Err(AiStudioError::validation("workflow".to_string(), format!(
+                "工作流验证失败: {}",
                 error_messages.join(", ")
             )));
         }
@@ -599,7 +599,7 @@ impl WorkflowEngine {
         // 验证工作流
         let validation_result = self.validate_workflow(&workflow).await?;
         if !validation_result.is_valid {
-            return Err(AiStudioError::validation("工作流验证失败"));
+            return Err(AiStudioError::validation("workflow".to_string(), "工作流验证失败".to_string()));
         }
         
         // 注册工作流

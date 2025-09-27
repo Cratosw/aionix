@@ -9,6 +9,7 @@ use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext}
 use crate::errors::AiStudioError;
 
 /// 搜索工具
+#[derive(Debug, Clone)]
 pub struct SearchTool {
     /// 工具配置
     config: SearchToolConfig,

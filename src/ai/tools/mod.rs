@@ -13,7 +13,7 @@ pub use http_tool::*;
 
 use std::collections::HashMap;
 use serde_json;
-use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext};
+use crate::ai::agent_runtime::{Tool, ToolResult, ToolMetadata, ExecutionContext, ToolEnum};
 use crate::errors::AiStudioError;
 
 /// 工具工厂
@@ -21,22 +21,22 @@ pub struct ToolFactory;
 
 impl ToolFactory {
     /// 创建所有基础工具
-    pub fn create_basic_tools() -> Vec<Box<dyn Tool + Send + Sync>> {
+    pub fn create_basic_tools() -> Vec<ToolEnum> {
         vec![
-            Box::new(SearchTool::new()),
-            Box::new(CalculatorTool::new()),
-            Box::new(FileTool::new()),
-            Box::new(HttpTool::new()),
+            ToolEnum::SearchTool(SearchTool::new()),
+            ToolEnum::CalculatorTool(CalculatorTool::new()),
+            ToolEnum::FileTool(FileTool::new()),
+            ToolEnum::HttpTool(HttpTool::new()),
         ]
     }
     
     /// 根据名称创建工具
-    pub fn create_tool(tool_name: &str) -> Option<Box<dyn Tool + Send + Sync>> {
+    pub fn create_tool(tool_name: &str) -> Option<ToolEnum> {
         match tool_name {
-            "search" => Some(Box::new(SearchTool::new())),
-            "calculator" => Some(Box::new(CalculatorTool::new())),
-            "file" => Some(Box::new(FileTool::new())),
-            "http" => Some(Box::new(HttpTool::new())),
+            "search" => Some(ToolEnum::SearchTool(SearchTool::new())),
+            "calculator" => Some(ToolEnum::CalculatorTool(CalculatorTool::new())),
+            "file" => Some(ToolEnum::FileTool(FileTool::new())),
+            "http" => Some(ToolEnum::HttpTool(HttpTool::new())),
             _ => None,
         }
     }

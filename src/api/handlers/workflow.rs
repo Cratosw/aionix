@@ -543,7 +543,7 @@ pub async fn get_workflow(
             error!("获取工作流详情失败: workflow_id={}, error={}", workflow_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -592,7 +592,7 @@ pub async fn get_execution_status(
             error!("获取执行状态失败: execution_id={}, error={}", execution_id, e);
             
             let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+                AiStudioError::NotFound { resource: _ } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             

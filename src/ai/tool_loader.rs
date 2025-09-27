@@ -197,7 +197,7 @@ impl ToolLoader {
             loaded_count: 0,
             failed_count: 0,
             skipped_count: 0,
-            details: Vec::new(),
+            failed_tools: Vec::new(),
         };
         
         // 首先加载内置工具
@@ -260,12 +260,12 @@ impl ToolLoader {
         
         let mut entries = fs::read_dir(&self.tools_directory).await.map_err(|e| {
             error!("读取工具目录失败: {}", e);
-            AiStudioError::io(format!("读取工具目录失败: {}", e))
+            AiStudioError::internal(format!("读取工具目录失败: {}", e))
         })?;
         
         while let Some(entry) = entries.next_entry().await.map_err(|e| {
             error!("读取目录条目失败: {}", e);
-            AiStudioError::io(format!("读取目录条目失败: {}", e))
+            AiStudioError::internal(format!("读取目录条目失败: {}", e))
         })? {
             let path = entry.path();
             
@@ -377,11 +377,11 @@ impl ToolLoader {
     /// 读取工具配置
     async fn read_tool_config(&self, config_path: &Path) -> Result<ToolConfig, AiStudioError> {
         let content = fs::read_to_string(config_path).await.map_err(|e| {
-            AiStudioError::io(format!("读取配置文件失败: {}", e))
+            AiStudioError::internal(format!("读取配置文件失败: {}", e))
         })?;
         
         let config: ToolConfig = serde_json::from_str(&content).map_err(|e| {
-            AiStudioError::validation(format!("解析配置文件失败: {}", e))
+            AiStudioError::validation("config".to_string(), format!("解析配置文件失败: {}", e))
         })?;
         
         // 验证配置
@@ -413,7 +413,7 @@ impl ToolLoader {
         &self,
         config: &ToolConfig,
         tool_dir: &Path,
-    ) -> Result<Arc<dyn Tool + Send + Sync>, AiStudioError> {
+    ) -> Result<ToolEnum, AiStudioError> {
         match &config.implementation {
             ToolImplementation::Builtin { class_name } => {
                 self.create_builtin_tool(class_name)
@@ -431,7 +431,7 @@ impl ToolLoader {
     }
     
     /// 创建内置工具
-    fn create_builtin_tool(&self, class_name: &str) -> Result<Arc<dyn Tool + Send + Sync>, AiStudioError> {
+    fn create_builtin_tool(&self, class_name: &str) -> Result<ToolEnum, AiStudioError> {
         ToolFactory::create_tool(class_name)
             .ok_or_else(|| AiStudioError::not_found(&format!("未知的内置工具: {}", class_name)))
     }
@@ -444,10 +444,10 @@ impl ToolLoader {
         script_path: &str,
         language: &ScriptLanguage,
         environment: &HashMap<String, String>,
-    ) -> Result<Arc<dyn Tool + Send + Sync>, AiStudioError> {
+    ) -> Result<ToolEnum, AiStudioError> {
         // TODO: 实现脚本工具创建
         // 这里需要实现一个通用的脚本工具包装器
-        Err(AiStudioError::not_implemented("脚本工具暂未实现"))
+        Err(AiStudioError::internal("脚本工具暂未实现"))
     }
     
     /// 创建插件工具
@@ -457,10 +457,10 @@ impl ToolLoader {
         tool_dir: &Path,
         plugin_path: &str,
         entry_point: &str,
-    ) -> Result<Arc<dyn Tool + Send + Sync>, AiStudioError> {
+    ) -> Result<ToolEnum, AiStudioError> {
         // TODO: 实现插件工具创建
         // 这里需要实现动态库加载和插件接口
-        Err(AiStudioError::not_implemented("插件工具暂未实现"))
+        Err(AiStudioError::internal("插件工具暂未实现"))
     }
     
     /// 创建外部工具
@@ -470,10 +470,10 @@ impl ToolLoader {
         command: &str,
         args_template: &str,
         working_directory: Option<&str>,
-    ) -> Result<Arc<dyn Tool + Send + Sync>, AiStudioError> {
+    ) -> Result<ToolEnum, AiStudioError> {
         // TODO: 实现外部工具创建
         // 这里需要实现一个通用的外部命令工具包装器
-        Err(AiStudioError::not_implemented("外部工具暂未实现"))
+        Err(AiStudioError::internal("外部工具暂未实现"))
     }
     
     /// 重新加载工具
@@ -490,14 +490,13 @@ impl ToolLoader {
             loaded_count: 0,
             failed_count: 0,
             skipped_count: 0,
-            details: Vec::new(),
+            failed_tools: Vec::new(),
         };
         
         self.scan_tools_directory(&mut result).await?;
         
         // 检查是否成功重新加载
-        let loaded = result.details.iter()
-            .any(|detail| detail.tool_name == tool_name && detail.status == LoadStatus::Success);
+        let loaded = result.loaded_count > 0;
         
         if loaded {
             info!("工具重新加载成功: {}", tool_name);
