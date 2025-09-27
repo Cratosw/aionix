@@ -1,0 +1,47 @@
+[package]
+name = "file-operations-plugin"
+version = "1.0.0"
+edition = "2021"
+description = "文件操作插件示例 - 提供基础的文件和目录操作功能"
+authors = ["Aionix AI Studio"]
+license = "MIT"
+repository = "https://github.com/aionix/ai-studio"
+homepage = "https://github.com/aionix/ai-studio"
+keywords = ["plugin", "file", "filesystem", "io"]
+categories = ["filesystem", "development-tools"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 异步运行时
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 日志
+tracing = "0.1"
+
+# 工具库
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
+
+[features]
+default = []
+sandbox = []  # 沙箱模式
+encryption = []  # 文件加密支持
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[[example]]
+name = "advanced_operations"
+path = "examples/advanced_operations.rs"

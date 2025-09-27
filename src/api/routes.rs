@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa, agent, tool, workflow};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa, agent, tool, workflow, plugin};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -120,6 +120,18 @@ use crate::services::tenant::TenantInfo;
         tool::get_all_tool_usage_stats,
         tool::reload_tool,
         tool::reload_all_tools,
+        // 插件管理
+        plugin::install_plugin,
+        plugin::uninstall_plugin,
+        plugin::list_plugins,
+        plugin::get_plugin_info,
+        plugin::call_plugin,
+        plugin::control_plugin,
+        plugin::update_plugin_config,
+        plugin::search_plugins,
+        plugin::get_plugin_statistics,
+        plugin::get_plugin_logs,
+        plugin::cleanup_plugin_data,
         // 工作流管理
         workflow::create_workflow,
         workflow::execute_workflow,
@@ -248,6 +260,22 @@ use crate::services::tenant::TenantInfo;
             crate::ai::tool_manager::PermissionLevel,
             crate::ai::agent_runtime::ToolMetadata,
             
+            // 插件相关
+            plugin::PluginCallRequest,
+            plugin::PluginCallResponse,
+            plugin::UpdatePluginConfigRequest,
+            plugin::PluginControlRequest,
+            plugin::PluginAction,
+            crate::plugins::plugin_manager::InstallPluginRequest,
+            crate::plugins::plugin_manager::InstallPluginResponse,
+            crate::plugins::plugin_manager::PluginListResponse,
+            crate::plugins::plugin_manager::PluginInfo,
+            crate::plugins::plugin_registry::PluginSearchQuery,
+            crate::plugins::plugin_registry::PluginSearchResult,
+            crate::plugins::plugin_registry::PluginStatistics,
+            crate::plugins::plugin_interface::PluginConfig,
+            crate::plugins::plugin_interface::PluginStatus,
+            
             // 工作流相关
             workflow::CreateWorkflowRequest,
             workflow::CreateWorkflowResponse,
@@ -281,6 +309,7 @@ use crate::services::tenant::TenantInfo;
         (name = "qa", description = "智能问答端点"),
         (name = "agents", description = "Agent 管理端点"),
         (name = "tools", description = "工具管理端点"),
+        (name = "plugins", description = "插件管理端点"),
         (name = "workflows", description = "工作流管理端点"),
     )
 )]
@@ -348,6 +377,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(agent::configure_routes)
                     // 工具管理路由
                     .configure(tool::configure_routes)
+                    // 插件管理路由
+                    .configure(plugin::configure_routes)
                     // 工作流管理路由
                     .configure(workflow::configure_routes)
                     // OpenAPI JSON 端点

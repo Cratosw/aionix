@@ -1,0 +1,57 @@
+[package]
+name = "http-client-plugin"
+version = "1.0.0"
+edition = "2021"
+description = "HTTP 客户端插件示例 - 提供 HTTP 请求和响应处理功能"
+authors = ["Aionix AI Studio"]
+license = "MIT"
+repository = "https://github.com/aionix/ai-studio"
+homepage = "https://github.com/aionix/ai-studio"
+keywords = ["plugin", "http", "client", "network", "api"]
+categories = ["network-programming", "web-programming", "development-tools"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 异步运行时
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+
+# HTTP 客户端
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# 序列化
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 编码
+base64 = "0.21"
+
+# 日志
+tracing = "0.1"
+
+# 工具库
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tracing-subscriber = "0.3"
+
+[features]
+default = []
+tls = ["reqwest/native-tls"]
+rustls = ["reqwest/rustls-tls"]
+cookies = ["reqwest/cookies"]
+gzip = ["reqwest/gzip"]
+brotli = ["reqwest/brotli"]
+deflate = ["reqwest/deflate"]
+
+[[example]]
+name = "basic_requests"
+path = "examples/basic_requests.rs"
+
+[[example]]
+name = "advanced_features"
+path = "examples/advanced_features.rs"
