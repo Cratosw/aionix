@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -76,6 +76,14 @@ use crate::services::tenant::TenantInfo;
         auth::confirm_password_reset,
         auth::get_current_user,
         auth::update_user_profile,
+        // 知识库管理
+        knowledge_base::create_knowledge_base,
+        knowledge_base::list_knowledge_bases,
+        knowledge_base::get_knowledge_base,
+        knowledge_base::update_knowledge_base,
+        knowledge_base::delete_knowledge_base,
+        knowledge_base::get_knowledge_base_stats,
+        knowledge_base::reindex_knowledge_base,
     ),
     components(
         schemas(
@@ -117,6 +125,17 @@ use crate::services::tenant::TenantInfo;
             // 分页相关
             PaginationQuery,
             PaginationInfo,
+            
+            // 知识库相关
+            knowledge_base::CreateKnowledgeBaseRequest,
+            knowledge_base::UpdateKnowledgeBaseRequest,
+            knowledge_base::KnowledgeBaseResponse,
+            knowledge_base::KnowledgeBaseStats,
+            knowledge_base::KnowledgeBaseSearchQuery,
+            crate::db::entities::knowledge_base::KnowledgeBaseType,
+            crate::db::entities::knowledge_base::KnowledgeBaseStatus,
+            crate::db::entities::knowledge_base::KnowledgeBaseConfig,
+            crate::db::entities::knowledge_base::KnowledgeBaseMetadata,
         )
     ),
     tags(
@@ -127,6 +146,7 @@ use crate::services::tenant::TenantInfo;
         (name = "quota", description = "配额管理端点"),
         (name = "rate-limit", description = "速率限制端点"),
         (name = "monitoring", description = "监控端点"),
+        (name = "knowledge-bases", description = "知识库管理端点"),
     )
 )]
 pub struct ApiDoc;
@@ -183,6 +203,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(rate_limit::configure_rate_limit_routes)
                     // 监控管理路由
                     .configure(monitoring::configure_monitoring_routes)
+                    // 知识库管理路由
+                    .configure(knowledge_base::configure_routes)
                     // OpenAPI JSON 端点
                     .route("/openapi.json", web::get().to(get_openapi_spec))
                     // 未来的路由将在这里添加：

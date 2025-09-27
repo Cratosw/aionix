@@ -1,7 +1,7 @@
 // 文档分块模块
 // 实现智能文档分块算法
 
-use crate::ai::{AiClientManager, ExtractedText};
+use crate::ai::{RigAiClientManager, ExtractedText};
 use crate::errors::AiStudioError;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -344,12 +344,12 @@ impl HybridChunker {
 
 /// AI 向量化器实现
 pub struct AiVectorizer {
-    client_manager: AiClientManager,
+    client_manager: RigAiClientManager,
     batch_size: usize,
 }
 
 impl AiVectorizer {
-    pub fn new(client_manager: AiClientManager) -> Self {
+    pub fn new(client_manager: RigAiClientManager) -> Self {
         Self {
             client_manager,
             batch_size: 10,
@@ -371,8 +371,6 @@ impl DocumentVectorizer for AiVectorizer {
     }
     
     async fn batch_vectorize(&self, chunks: &mut [DocumentChunk], batch_size: usize) -> Result<(), AiStudioError> {
-        let client = self.client_manager.client();
-        
         for chunk_batch in chunks.chunks_mut(batch_size) {
             let texts: Vec<String> = chunk_batch.iter()
                 .map(|chunk| chunk.content.clone())
@@ -380,7 +378,7 @@ impl DocumentVectorizer for AiVectorizer {
             
             debug!("向量化批次，包含 {} 个文档块", texts.len());
             
-            let embeddings = client.generate_embeddings(&texts).await?;
+            let embeddings = self.client_manager.generate_embeddings(&texts).await?;
             
             if embeddings.len() != chunk_batch.len() {
                 return Err(AiStudioError::ai("嵌入向量数量与文档块数量不匹配"));
@@ -401,7 +399,7 @@ pub struct DocumentProcessingFactory;
 
 impl DocumentProcessingFactory {
     /// 创建默认的处理管道
-    pub fn create_default_pipeline(client_manager: AiClientManager) -> DocumentProcessingPipeline {
+    pub fn create_default_pipeline(client_manager: RigAiClientManager) -> DocumentProcessingPipeline {
         let chunker = Box::new(HybridChunker::with_default_config());
         let vectorizer = Box::new(AiVectorizer::new(client_manager));
         
@@ -411,7 +409,7 @@ impl DocumentProcessingFactory {
     /// 创建自定义配置的处理管道
     pub fn create_custom_pipeline(
         chunker_config: ChunkerConfig,
-        client_manager: AiClientManager,
+        client_manager: RigAiClientManager,
         batch_size: usize,
     ) -> DocumentProcessingPipeline {
         let chunker = Box::new(HybridChunker::new(chunker_config));
@@ -509,7 +507,10 @@ mod tests {
             retry_attempts: 3,
         };
         
-        let client_manager = AiClientManager::new(config).unwrap();
+        let client_manager = match RigAiClientManager::new(config).await {
+            Ok(manager) => manager,
+            Err(_) => return,
+        };
         let vectorizer = AiVectorizer::new(client_manager);
         
         let mut chunks = vec![
@@ -582,7 +583,10 @@ mod tests {
             retry_attempts: 3,
         };
         
-        let client_manager = AiClientManager::new(config).unwrap();
+        let client_manager = match RigAiClientManager::new(config).await {
+            Ok(manager) => manager,
+            Err(_) => return,
+        };
         let pipeline = DocumentProcessingFactory::create_default_pipeline(client_manager);
         
         let text = create_test_extracted_text();

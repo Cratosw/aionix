@@ -3,6 +3,7 @@
 
 pub mod auth;
 pub mod health;
+pub mod knowledge_base;
 pub mod monitoring;
 pub mod quota;
 pub mod rate_limit;
@@ -11,6 +12,7 @@ pub mod version;
 
 pub use auth::*;
 pub use health::*;
+pub use knowledge_base::*;
 pub use monitoring::*;
 pub use quota::*;
 pub use rate_limit::*;

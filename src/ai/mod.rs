@@ -7,6 +7,7 @@ pub mod health;
 pub mod document_processor;
 pub mod chunker;
 pub mod vector_search;
+pub mod rig_client;
 
 #[cfg(test)]
 mod tests;
@@ -21,3 +22,4 @@ pub use health::*;
 pub use document_processor::*;
 pub use chunker::*;
 pub use vector_search::*;
+pub use rig_client::*;
