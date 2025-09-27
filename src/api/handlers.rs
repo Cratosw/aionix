@@ -13,6 +13,7 @@ pub mod rate_limit;
 pub mod tenant;
 pub mod tool;
 pub mod version;
+pub mod workflow;
 
 pub use agent::*;
 pub use auth::*;
@@ -26,3 +27,4 @@ pub use rate_limit::*;
 pub use tenant::*;
 pub use tool::*;
 pub use version::*;
+pub use workflow::*;

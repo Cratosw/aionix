@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa, agent, tool};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa, agent, tool, workflow};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -120,6 +120,15 @@ use crate::services::tenant::TenantInfo;
         tool::get_all_tool_usage_stats,
         tool::reload_tool,
         tool::reload_all_tools,
+        // 工作流管理
+        workflow::create_workflow,
+        workflow::execute_workflow,
+        workflow::list_workflows,
+        workflow::get_workflow,
+        workflow::get_execution_status,
+        workflow::cancel_execution,
+        workflow::get_execution_history,
+        workflow::publish_workflow,
     ),
     components(
         schemas(
@@ -238,6 +247,25 @@ use crate::services::tenant::TenantInfo;
             crate::ai::tool_manager::ToolListResponse,
             crate::ai::tool_manager::PermissionLevel,
             crate::ai::agent_runtime::ToolMetadata,
+            
+            // 工作流相关
+            workflow::CreateWorkflowRequest,
+            workflow::CreateWorkflowResponse,
+            workflow::ExecuteWorkflowRequest,
+            workflow::ExecuteWorkflowResponse,
+            workflow::WorkflowListQuery,
+            workflow::WorkflowListResponse,
+            workflow::WorkflowSummary,
+            workflow::WorkflowExecutionStats,
+            workflow::ExecutionHistoryQuery,
+            workflow::ExecutionHistoryResponse,
+            workflow::ExecutionSummary,
+            workflow::StepStats,
+            workflow::PaginationInfo,
+            workflow::ValidationSummary,
+            crate::ai::workflow_engine::WorkflowDefinition,
+            crate::ai::workflow_engine::WorkflowStatus,
+            crate::ai::workflow_executor::WorkflowExecution,
         )
     ),
     tags(
@@ -253,6 +281,7 @@ use crate::services::tenant::TenantInfo;
         (name = "qa", description = "智能问答端点"),
         (name = "agents", description = "Agent 管理端点"),
         (name = "tools", description = "工具管理端点"),
+        (name = "workflows", description = "工作流管理端点"),
     )
 )]
 pub struct ApiDoc;
@@ -319,6 +348,8 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(agent::configure_routes)
                     // 工具管理路由
                     .configure(tool::configure_routes)
+                    // 工作流管理路由
+                    .configure(workflow::configure_routes)
                     // OpenAPI JSON 端点
                     .route("/openapi.json", web::get().to(get_openapi_spec))
                     // 未来的路由将在这里添加：

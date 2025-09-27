@@ -10,6 +10,7 @@ mod logging;
 mod db;
 mod health;
 mod services;
+mod plugins;
 
 use config::ConfigLoader;
 use errors::ErrorHandlerMiddleware;
