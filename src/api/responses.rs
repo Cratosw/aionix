@@ -83,6 +83,18 @@ impl SuccessResponse {
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
+
+    /// 创建接受响应
+    pub fn accepted<T: Serialize>(data: T) -> ApiResponse<T> {
+        ApiResponse {
+            success: true,
+            data: Some(data),
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
 }
 
 /// 错误响应构建器
@@ -167,13 +179,13 @@ impl ErrorResponse {
     }
 
     /// 创建禁止访问错误响应
-    pub fn forbidden<T>() -> ApiResponse<T> {
+    pub fn forbidden<T>(message: &str) -> ApiResponse<T> {
         ApiResponse {
             success: false,
             data: None,
             error: Some(ApiError {
                 code: "FORBIDDEN".to_string(),
-                message: "禁止访问".to_string(),
+                message: message.to_string(),
                 details: None,
                 field: None,
                 help_url: Some("https://docs.aionix.ai/api/permissions".to_string()),
@@ -257,13 +269,13 @@ impl ErrorResponse {
     }
 
     /// 创建内部服务器错误响应
-    pub fn internal_error<T>() -> ApiResponse<T> {
+    pub fn internal_server_error<T>(message: &str) -> ApiResponse<T> {
         ApiResponse {
             success: false,
             data: None,
             error: Some(ApiError {
                 code: "INTERNAL_ERROR".to_string(),
-                message: "内部服务器错误".to_string(),
+                message: message.to_string(),
                 details: None,
                 field: None,
                 help_url: Some("https://docs.aionix.ai/api/errors".to_string()),
@@ -308,8 +320,8 @@ impl HttpResponseBuilder {
     }
 
     /// 创建 403 Forbidden 响应
-    pub fn forbidden<T: serde::Serialize>() -> ActixResult<HttpResponse> {
-        Ok(HttpResponse::Forbidden().json(ErrorResponse::forbidden::<T>()))
+    pub fn forbidden<T: serde::Serialize>(message: &str) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::Forbidden().json(ErrorResponse::forbidden::<T>(message)))
     }
 
     /// 创建 404 Not Found 响应
@@ -347,6 +359,10 @@ fn generate_request_id() -> String {
 pub trait ApiResponseExt<T> {
     /// 转换为 HTTP 响应
     fn into_http_response(self) -> ActixResult<HttpResponse>;
+    /// 转换为 HTTP 响应（into）
+    fn into(self) -> ActixResult<HttpResponse> {
+        self.into_http_response()
+    }
 }
 
 impl<T: Serialize> ApiResponseExt<T> for ApiResponse<T> {

@@ -158,10 +158,10 @@ pub async fn call_tool(
         Err(e) => {
             error!("工具调用失败: {} - {}", request.tool_name, e);
             
-            let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
-                AiStudioError::PermissionDenied(_) => HttpResponse::Forbidden(),
-                AiStudioError::Validation(_) => HttpResponse::BadRequest(),
+            let error_response = match &e {
+                AiStudioError::NotFound { .. } => HttpResponse::NotFound(),
+                AiStudioError::Authorization { .. } => HttpResponse::Forbidden(),
+                AiStudioError::Validation { .. } => HttpResponse::BadRequest(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -261,8 +261,8 @@ pub async fn get_tool_metadata(
         Err(e) => {
             error!("获取工具元数据失败: {} - {}", tool_name, e);
             
-            let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+            let error_response = match &e {
+                AiStudioError::NotFound { .. } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             
@@ -375,8 +375,8 @@ pub async fn get_tool_usage_stats(
         Err(e) => {
             error!("获取工具使用统计失败: {} - {}", tool_name, e);
             
-            let error_response = match e {
-                AiStudioError::NotFound(_) => HttpResponse::NotFound(),
+            let error_response = match &e {
+                AiStudioError::NotFound { .. } => HttpResponse::NotFound(),
                 _ => HttpResponse::InternalServerError(),
             };
             

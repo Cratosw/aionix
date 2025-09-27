@@ -219,12 +219,12 @@ pub async fn create_knowledge_base(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     if existing.is_some() {
         warn!("知识库名称已存在: {}", req.name);
-        return Ok(ApiError::conflict("知识库名称已存在").into());
+        return Ok(ErrorResponse::conflict::<()>("知识库名称已存在").into_http_response()?);
     }
     
     // 准备配置和元数据
@@ -262,13 +262,13 @@ pub async fn create_knowledge_base(
         .await
         .map_err(|e| {
             error!("创建知识库失败: {}", e);
-            ApiError::internal_server_error("创建知识库失败")
+            ErrorResponse::internal_server_error::<()>("创建知识库失败")
         })?;
     
     info!("知识库创建成功: id={}, 名称={}", kb.id, kb.name);
     
     let response = KnowledgeBaseResponse::from(kb);
-    Ok(ApiResponse::created(response).into())
+    Ok(SuccessResponse::created(response).into_http_response()?)
 }
 
 /// 获取知识库列表
@@ -344,7 +344,7 @@ pub async fn list_knowledge_bases(
     let paginator = select.paginate(db.as_ref(), query_params.pagination.page_size as u64);
     let total = paginator.num_items().await.map_err(|e| {
         error!("查询知识库总数失败: {}", e);
-        ApiError::internal_server_error("查询知识库失败")
+        ErrorResponse::internal_server_error::<()>("查询知识库失败")
     })?;
     
     let knowledge_bases = paginator
@@ -352,7 +352,7 @@ pub async fn list_knowledge_bases(
         .await
         .map_err(|e| {
             error!("查询知识库列表失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let responses: Vec<KnowledgeBaseResponse> = knowledge_bases
@@ -367,7 +367,7 @@ pub async fn list_knowledge_bases(
     );
     
     let response = PaginatedResponse::new(responses, pagination);
-    Ok(ApiResponse::ok(response).into())
+    Ok(SuccessResponse::ok(response).into_http_response()?)
 }
 
 /// 获取知识库详情
@@ -405,25 +405,25 @@ pub async fn get_knowledge_base(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let kb = match kb {
         Some(kb) => kb,
         None => {
             warn!("知识库不存在: id={}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(ErrorResponse::not_found::<()>("知识库不存在").into_http_response()?);
         }
     };
     
     // 检查访问权限
     if !kb.has_access(&user_ctx.user.role, &user_ctx.user.id.to_string()).unwrap_or(false) {
         warn!("用户无权访问知识库: user={}, kb={}", user_ctx.user.id, kb_id);
-        return Ok(ApiError::forbidden("无权访问此知识库").into());
+        return Ok(ErrorResponse::forbidden::<()>("无权访问此知识库").into_http_response()?);
     }
     
     let response = KnowledgeBaseResponse::from(kb);
-    Ok(ApiResponse::ok(response).into())
+    Ok(SuccessResponse::ok(response).into_http_response()?)
 }
 
 /// 更新知识库
@@ -466,21 +466,21 @@ pub async fn update_knowledge_base(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let kb = match kb {
         Some(kb) => kb,
         None => {
             warn!("知识库不存在: id={}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(ErrorResponse::not_found::<()>("知识库不存在").into_http_response()?);
         }
     };
     
     // 检查访问权限
     if !kb.has_access(&user_ctx.user.role, &user_ctx.user.id.to_string()).unwrap_or(false) {
         warn!("用户无权修改知识库: user={}, kb={}", user_ctx.user.id, kb_id);
-        return Ok(ApiError::forbidden("无权修改此知识库").into());
+        return Ok(ErrorResponse::forbidden::<()>("无权修改此知识库").into_http_response()?);
     }
     
     // 检查名称冲突
@@ -494,12 +494,12 @@ pub async fn update_knowledge_base(
                 .await
                 .map_err(|e| {
                     error!("查询知识库名称冲突失败: {}", e);
-                    ApiError::internal_server_error("查询知识库失败")
+                    ErrorResponse::internal_server_error::<()>("查询知识库失败")
                 })?;
             
             if existing.is_some() {
                 warn!("知识库名称已存在: {}", new_name);
-                return Ok(ApiError::conflict("知识库名称已存在").into());
+                return Ok(ErrorResponse::conflict::<()>("知识库名称已存在").into_http_response()?);
             }
         }
     }
@@ -542,13 +542,13 @@ pub async fn update_knowledge_base(
     // 执行更新
     let updated_kb = active_model.update(db.as_ref()).await.map_err(|e| {
         error!("更新知识库失败: {}", e);
-        ApiError::internal_server_error("更新知识库失败")
+        ErrorResponse::internal_server_error::<()>("更新知识库失败")
     })?;
     
     info!("知识库更新成功: id={}, 名称={}", updated_kb.id, updated_kb.name);
     
     let response = KnowledgeBaseResponse::from(updated_kb);
-    Ok(ApiResponse::ok(response).into())
+    Ok(SuccessResponse::ok(response).into_http_response()?)
 }
 
 /// 删除知识库
@@ -588,27 +588,27 @@ pub async fn delete_knowledge_base(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let kb = match kb {
         Some(kb) => kb,
         None => {
             warn!("知识库不存在: id={}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(ErrorResponse::not_found::<()>("知识库不存在").into_http_response()?);
         }
     };
     
     // 检查访问权限
     if !kb.has_access(&user_ctx.user.role, &user_ctx.user.id.to_string()).unwrap_or(false) {
         warn!("用户无权删除知识库: user={}, kb={}", user_ctx.user.id, kb_id);
-        return Ok(ApiError::forbidden("无权删除此知识库").into());
+        return Ok(ErrorResponse::forbidden::<()>("无权删除此知识库").into_http_response()?);
     }
     
     // 检查是否包含文档
     if kb.document_count > 0 {
         warn!("知识库包含文档，无法删除: id={}, 文档数={}", kb_id, kb.document_count);
-        return Ok(ApiError::conflict("知识库包含文档，请先删除所有文档").into());
+        return Ok(ErrorResponse::conflict::<()>("知识库包含文档，请先删除所有文档").into_http_response()?);
     }
     
     // 执行删除
@@ -617,11 +617,11 @@ pub async fn delete_knowledge_base(
         .await
         .map_err(|e| {
             error!("删除知识库失败: {}", e);
-            ApiError::internal_server_error("删除知识库失败")
+            ErrorResponse::internal_server_error::<()>("删除知识库失败")
         })?;
     
     info!("知识库删除成功: id={}", kb_id);
-    Ok(ApiResponse::no_content().into())
+    Ok(SuccessResponse::no_content().into_http_response()?)
 }
 
 /// 获取知识库统计信息
@@ -659,25 +659,25 @@ pub async fn get_knowledge_base_stats(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let kb = match kb {
         Some(kb) => kb,
         None => {
             warn!("知识库不存在: id={}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(ErrorResponse::not_found::<()>("知识库不存在").into_http_response()?);
         }
     };
     
     // 检查访问权限
     if !kb.has_access(&user_ctx.user.role, &user_ctx.user.id.to_string()).unwrap_or(false) {
         warn!("用户无权访问知识库统计: user={}, kb={}", user_ctx.user.id, kb_id);
-        return Ok(ApiError::forbidden("无权访问此知识库").into());
+        return Ok(ErrorResponse::forbidden::<()>("无权访问此知识库").into_http_response()?);
     }
     
     let stats = KnowledgeBaseStats::from(kb);
-    Ok(ApiResponse::ok(stats).into())
+    Ok(SuccessResponse::ok(stats).into_http_response()?)
 }
 
 /// 重新索引知识库
@@ -717,27 +717,27 @@ pub async fn reindex_knowledge_base(
         .await
         .map_err(|e| {
             error!("查询知识库失败: {}", e);
-            ApiError::internal_server_error("查询知识库失败")
+            ErrorResponse::internal_server_error::<()>("查询知识库失败")
         })?;
     
     let kb = match kb {
         Some(kb) => kb,
         None => {
             warn!("知识库不存在: id={}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(ErrorResponse::not_found::<()>("知识库不存在").into_http_response()?);
         }
     };
     
     // 检查访问权限
     if !kb.has_access(&user_ctx.user.role, &user_ctx.user.id.to_string()).unwrap_or(false) {
         warn!("用户无权重新索引知识库: user={}, kb={}", user_ctx.user.id, kb_id);
-        return Ok(ApiError::forbidden("无权操作此知识库").into());
+        return Ok(ErrorResponse::forbidden::<()>("无权操作此知识库").into_http_response()?);
     }
     
     // 检查知识库状态
     if kb.is_processing() {
         warn!("知识库正在处理中，无法重新索引: id={}", kb_id);
-        return Ok(ApiError::conflict("知识库正在处理中，请稍后再试").into());
+        return Ok(ErrorResponse::conflict::<()>("知识库正在处理中，请稍后再试").into_http_response()?);
     }
     
     // 更新知识库状态为处理中
@@ -749,7 +749,7 @@ pub async fn reindex_knowledge_base(
     
     let updated_kb = active_model.update(db.as_ref()).await.map_err(|e| {
         error!("更新知识库状态失败: {}", e);
-        ApiError::internal_server_error("更新知识库状态失败")
+        ErrorResponse::internal_server_error::<()>("更新知识库状态失败")
     })?;
     
     // TODO: 这里应该启动异步重新索引任务
@@ -764,7 +764,7 @@ pub async fn reindex_knowledge_base(
         "started_at": now
     });
     
-    Ok(ApiResponse::accepted(response).into())
+    Ok(SuccessResponse::accepted(response).into_http_response()?)
 }
 
 /// 配置知识库路由

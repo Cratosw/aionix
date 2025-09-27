@@ -11,6 +11,7 @@ use tokio::sync::{RwLock, Mutex};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait};
 
 use crate::errors::AiStudioError;
+use serde::Serialize;
 use crate::ai::rig_client::RigClient;
 
 /// Agent 运行时引擎
@@ -408,6 +409,21 @@ pub struct ToolResult {
     pub execution_time_ms: u64,
     /// 输出消息
     pub message: Option<String>,
+}
+
+impl Serialize for ToolLoadResult {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ToolLoadResult", 4)?;
+        state.serialize_field("loaded_count", &self.loaded_count)?;
+        state.serialize_field("failed_count", &self.failed_count)?;
+        state.serialize_field("skipped_count", &self.skipped_count)?;
+        state.serialize_field("failed_tools", &self.failed_tools)?;
+        state.end()
+    }
 }
 
 impl AgentRuntime {

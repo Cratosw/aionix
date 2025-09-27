@@ -142,7 +142,7 @@ pub enum ScriptLanguage {
 }
 
 /// 工具加载结果
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolLoadResult {
     /// 加载的工具数
     pub loaded_count: usize,
@@ -150,8 +150,8 @@ pub struct ToolLoadResult {
     pub failed_count: usize,
     /// 跳过的工具数
     pub skipped_count: usize,
-    /// 加载详情
-    pub details: Vec<ToolLoadDetail>,
+    /// 失败的工具列表
+    pub failed_tools: Vec<String>,
 }
 
 /// 工具加载详情
