@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa, agent, tool};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -104,6 +104,22 @@ use crate::services::tenant::TenantInfo;
         qa::get_session_history,
         qa::submit_feedback,
         qa::get_suggestions,
+        // Agent 管理
+        agent::create_agent,
+        agent::execute_task,
+        agent::get_agent_status,
+        agent::stop_agent,
+        agent::list_agents,
+        agent::cleanup_agents,
+        // 工具管理
+        tool::call_tool,
+        tool::list_tools,
+        tool::get_tool_metadata,
+        tool::update_tool_permissions,
+        tool::get_tool_usage_stats,
+        tool::get_all_tool_usage_stats,
+        tool::reload_tool,
+        tool::reload_all_tools,
     ),
     components(
         schemas(
@@ -195,6 +211,33 @@ use crate::services::tenant::TenantInfo;
             qa::QaSuggestionsRequest,
             qa::QaSuggestionsResponse,
             qa::SessionHistoryQuery,
+            
+            // Agent 相关
+            agent::CreateAgentRequest,
+            agent::CreateAgentResponse,
+            agent::ExecuteTaskRequest,
+            agent::ExecuteTaskResponse,
+            agent::AgentStatusResponse,
+            agent::AgentTaskInfo,
+            agent::ExecutionStats,
+            agent::ListAgentsResponse,
+            agent::AgentInfo,
+            crate::ai::agent_runtime::ReasoningStrategy,
+            crate::ai::agent_runtime::AgentState,
+            crate::ai::agent_runtime::TaskPriority,
+            crate::ai::agent_runtime::TaskStatus,
+            
+            // 工具相关
+            tool::ToolCallRequest,
+            tool::ToolCallResponse,
+            tool::UpdateToolPermissionsRequest,
+            tool::ToolListQuery,
+            tool::ReloadToolRequest,
+            tool::ReloadToolResponse,
+            crate::ai::tool_manager::ToolUsageStats,
+            crate::ai::tool_manager::ToolListResponse,
+            crate::ai::tool_manager::PermissionLevel,
+            crate::ai::agent_runtime::ToolMetadata,
         )
     ),
     tags(
@@ -208,6 +251,8 @@ use crate::services::tenant::TenantInfo;
         (name = "knowledge-bases", description = "知识库管理端点"),
         (name = "documents", description = "文档管理端点"),
         (name = "qa", description = "智能问答端点"),
+        (name = "agents", description = "Agent 管理端点"),
+        (name = "tools", description = "工具管理端点"),
     )
 )]
 pub struct ApiDoc;
@@ -270,6 +315,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(document::configure_routes)
                     // 问答管理路由
                     .configure(qa::configure_routes)
+                    // Agent 管理路由
+                    .configure(agent::configure_routes)
+                    // 工具管理路由
+                    .configure(tool::configure_routes)
                     // OpenAPI JSON 端点
                     .route("/openapi.json", web::get().to(get_openapi_spec))
                     // 未来的路由将在这里添加：

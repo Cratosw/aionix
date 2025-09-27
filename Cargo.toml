@@ -102,6 +102,9 @@ lazy_static = "1.4"
 url = "2.0"
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 
+# 流处理和异步工具
+tokio-util = "0.7"
+
 # 备份和迁移
 sha2 = "0.10"
 md5 = "0.7"
