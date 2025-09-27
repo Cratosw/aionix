@@ -8,6 +8,7 @@ pub mod monitoring;
 pub mod notification;
 pub mod quota;
 pub mod rate_limit;
+pub mod task_queue;
 pub mod tenant;
 
 pub use ai::*;
@@ -17,4 +18,5 @@ pub use monitoring::*;
 pub use notification::*;
 pub use quota::*;
 pub use rate_limit::*;
+pub use task_queue::*;
 pub use tenant::*;

@@ -27,6 +27,11 @@ vector = ["pgvector"]
 actix-web = "4"
 actix-web-httpauth = "0.8"
 actix-cors = "0.7"
+actix-multipart = "0.6"
+actix-web-lab = "0.20"
+
+# 流处理
+tokio-stream = "0.1"
 
 # 序列化
 serde = { version = "1.0", features = ["derive"] }

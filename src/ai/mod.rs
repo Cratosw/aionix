@@ -8,12 +8,12 @@ pub mod document_processor;
 pub mod chunker;
 pub mod vector_search;
 pub mod rig_client;
+pub mod rag_engine;
 
 #[cfg(test)]
 mod tests;
 
 // 将在后续任务中实现的模块
-// pub mod rag;
 // pub mod agent;
 
 pub use client::*;
@@ -23,3 +23,4 @@ pub use document_processor::*;
 pub use chunker::*;
 pub use vector_search::*;
 pub use rig_client::*;
+pub use rag_engine::*;

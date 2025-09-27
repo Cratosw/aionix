@@ -4,7 +4,7 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use utoipa::{OpenApi, ToSchema};
 
-use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base};
+use crate::api::handlers::{self, health, version, tenant, quota, rate_limit, monitoring, auth, knowledge_base, document, qa};
 use crate::api::models::*;
 // use crate::api::middleware::{
 //     RequestIdMiddleware, ApiVersionMiddleware, RequestLoggingMiddleware,
@@ -84,6 +84,26 @@ use crate::services::tenant::TenantInfo;
         knowledge_base::delete_knowledge_base,
         knowledge_base::get_knowledge_base_stats,
         knowledge_base::reindex_knowledge_base,
+        // 文档管理
+        document::create_document,
+        document::upload_document,
+        document::list_documents,
+        document::get_document,
+        document::update_document,
+        document::delete_document,
+        document::get_document_stats,
+        document::reprocess_document,
+        // 批量文档操作
+        document::batch_document_operation,
+        document::batch_import_documents,
+        document::batch_export_documents,
+        document::get_batch_operation_status,
+        // 问答管理
+        qa::ask_question,
+        qa::ask_question_stream,
+        qa::get_session_history,
+        qa::submit_feedback,
+        qa::get_suggestions,
     ),
     components(
         schemas(
@@ -136,6 +156,45 @@ use crate::services::tenant::TenantInfo;
             crate::db::entities::knowledge_base::KnowledgeBaseStatus,
             crate::db::entities::knowledge_base::KnowledgeBaseConfig,
             crate::db::entities::knowledge_base::KnowledgeBaseMetadata,
+            
+            // 文档相关
+            document::CreateDocumentRequest,
+            document::UpdateDocumentRequest,
+            document::DocumentResponse,
+            document::DocumentStats,
+            document::DocumentSearchQuery,
+            document::DocumentUploadResponse,
+            crate::db::entities::document::DocumentType,
+            crate::db::entities::document::DocumentStatus,
+            crate::db::entities::document::DocumentMetadata,
+            crate::db::entities::document::DocumentProcessingConfig,
+            
+            // 批量操作相关
+            document::BatchDocumentOperation,
+            document::BatchDocumentRequest,
+            document::BatchDocumentResponse,
+            document::BatchDocumentError,
+            document::BatchImportRequest,
+            document::BatchImportOptions,
+            document::BatchImportResponse,
+            document::BatchExportRequest,
+            document::BatchExportOptions,
+            document::BatchExportResponse,
+            document::ExportFormat,
+            
+            // 问答相关
+            qa::QaRequest,
+            qa::QaResponse,
+            qa::QaSource,
+            qa::QaChunk,
+            qa::QaStats,
+            qa::SessionMessage,
+            qa::MessageType,
+            qa::QaFeedbackRequest,
+            qa::FeedbackType,
+            qa::QaSuggestionsRequest,
+            qa::QaSuggestionsResponse,
+            qa::SessionHistoryQuery,
         )
     ),
     tags(
@@ -147,6 +206,8 @@ use crate::services::tenant::TenantInfo;
         (name = "rate-limit", description = "速率限制端点"),
         (name = "monitoring", description = "监控端点"),
         (name = "knowledge-bases", description = "知识库管理端点"),
+        (name = "documents", description = "文档管理端点"),
+        (name = "qa", description = "智能问答端点"),
     )
 )]
 pub struct ApiDoc;
@@ -205,6 +266,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
                     .configure(monitoring::configure_monitoring_routes)
                     // 知识库管理路由
                     .configure(knowledge_base::configure_routes)
+                    // 文档管理路由
+                    .configure(document::configure_routes)
+                    // 问答管理路由
+                    .configure(qa::configure_routes)
                     // OpenAPI JSON 端点
                     .route("/openapi.json", web::get().to(get_openapi_spec))
                     // 未来的路由将在这里添加：
