@@ -19,7 +19,7 @@ default = ["postgres", "redis", "ai"]
 postgres = ["sea-orm/sqlx-postgres", "sqlx/postgres"]
 sqlite = ["sea-orm/sqlx-sqlite", "sqlx/sqlite"]
 redis = ["dep:redis"]
-ai = ["dep:rig-core"]
+ai = ["dep:rig-core", ]
 vector = ["pgvector"]
 
 [dependencies]
@@ -62,7 +62,7 @@ redis = { version = "0.24", features = [
 ], optional = true }
 
 # AI 框架 (Rig)
-rig-core = { version = "0.1", optional = true }
+rig-core = { version = "0.20", optional = true }
 
 # API 文档
 utoipa = { version = "4", features = ["actix_extras", "uuid", "chrono"] }
