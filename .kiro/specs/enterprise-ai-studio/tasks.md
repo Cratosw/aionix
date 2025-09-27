@@ -188,7 +188,7 @@
 
 ## 7. Agent 系统核心
 
-- [ ] 7.1 实现 Agent 运行时引擎
+- [x] 7.1 实现 Agent 运行时引擎
 
   - 创建 `src/ai/agent_runtime.rs` Agent 执行引擎
   - 实现推理循环和工具调用机制
