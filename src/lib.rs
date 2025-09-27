@@ -8,6 +8,7 @@ pub mod db;
 pub mod errors;
 pub mod health;
 pub mod logging;
+pub mod plugins;
 pub mod services;
 
 pub use health::*;

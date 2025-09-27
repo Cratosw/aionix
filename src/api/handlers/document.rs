@@ -592,8 +592,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/upload", web::post().to(upload_document))
             // 其他路由将在后续添加
     );
-}/// 获取文
-档列表
+}
+
+/// 获取文档列表
 #[utoipa::path(
     get,
     path = "/api/v1/documents",
@@ -1094,8 +1095,9 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/{id}/stats", web::get().to(get_document_stats))
             .route("/{id}/reprocess", web::post().to(reprocess_document))
     );
-}/// 批量操作类
-型
+}
+
+/// 批量操作类型
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum BatchDocumentOperation {

@@ -10,7 +10,7 @@ use utoipa::ToSchema;
 
 use crate::ai::{
     workflow_engine::{WorkflowEngine, WorkflowDefinition, WorkflowStatus, ValidationResult},
-    workflow_executor::{WorkflowExecutor, ExecutionRequest, ExecutionOptions, ExecutionContext, WorkflowExecution},
+    // workflow_executor module is not available
 };
 use crate::errors::AiStudioError;
 use crate::middleware::auth::TenantInfo;

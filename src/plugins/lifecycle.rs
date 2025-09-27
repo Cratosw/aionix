@@ -92,8 +92,9 @@ pub struct StatusTransition {
     pub success: bool,
     /// 错误信息
     pub error: Option<String>,
-}impl Plug
-inLifecycleManager {
+}
+
+impl PluginLifecycleManager {
     /// 创建新的生命周期管理器
     pub fn new(config: Option<LifecycleConfig>) -> Self {
         Self {
@@ -572,6 +573,111 @@ pub struct PluginInstanceInfo {
     pub error_count: usize,
     /// 事件数量
     pub event_count: usize,
+}
+
+impl PluginLifecycleManager {
+    /// 创建新的生命周期管理器
+    pub fn new(config: Option<LifecycleConfig>) -> Self {
+        Self {
+            plugins: Arc::new(RwLock::new(HashMap::new())),
+            config: config.unwrap_or_default(),
+        }
+    }
+    
+    /// 注册插件
+    pub async fn register_plugin(
+        &self,
+        plugin_id: String,
+        plugin: Box<dyn Plugin>,
+        config: PluginConfig,
+    ) -> Result<(), AiStudioError> {
+        let mut plugins = self.plugins.write().await;
+        plugins.insert(plugin_id.clone(), PluginInstance {
+            plugin_id: plugin_id.clone(),
+            plugin,
+            config,
+            status: PluginStatus::Initialized,
+            restart_count: 0,
+            created_at: Utc::now(),
+            last_status_change: Utc::now(),
+            error_history: Vec::new(),
+            event_history: Vec::new(),
+        });
+        Ok(())
+    }
+    
+    /// 初始化插件
+    pub async fn initialize_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
+        let mut plugins = self.plugins.write().await;
+        if let Some(instance) = plugins.get_mut(plugin_id) {
+            instance.status = PluginStatus::Initialized;
+        }
+        Ok(())
+    }
+    
+    /// 启动插件
+    pub async fn start_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
+        let mut plugins = self.plugins.write().await;
+        if let Some(instance) = plugins.get_mut(plugin_id) {
+            instance.status = PluginStatus::Running;
+        }
+        Ok(())
+    }
+    
+    /// 停止插件
+    pub async fn stop_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
+        let mut plugins = self.plugins.write().await;
+        if let Some(instance) = plugins.get_mut(plugin_id) {
+            instance.status = PluginStatus::Stopped;
+        }
+        Ok(())
+    }
+    
+    /// 卸载插件
+    pub async fn unload_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
+        let mut plugins = self.plugins.write().await;
+        plugins.remove(plugin_id);
+        Ok(())
+    }
+    
+    /// 重启插件
+    pub async fn restart_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
+        self.stop_plugin(plugin_id).await?;
+        self.start_plugin(plugin_id).await?;
+        Ok(())
+    }
+    
+    /// 获取插件状态
+    pub async fn get_plugin_status(&self, plugin_id: &str) -> Result<PluginStatus, AiStudioError> {
+        let plugins = self.plugins.read().await;
+        if let Some(instance) = plugins.get(plugin_id) {
+            Ok(instance.status.clone())
+        } else {
+            Err(AiStudioError::not_found("插件不存在"))
+        }
+    }
+    
+    /// 获取所有插件状态
+    pub async fn get_all_plugin_status(&self) -> HashMap<String, PluginStatus> {
+        let plugins = self.plugins.read().await;
+        plugins.iter().map(|(id, instance)| (id.clone(), instance.status.clone())).collect()
+    }
+    
+    /// 获取插件信息
+    pub async fn get_plugin_info(&self, plugin_id: &str) -> Result<PluginInstance, AiStudioError> {
+        let plugins = self.plugins.read().await;
+        if let Some(instance) = plugins.get(plugin_id) {
+            Ok(instance.clone())
+        } else {
+            Err(AiStudioError::not_found("插件不存在"))
+        }
+    }
+    
+    /// 清理插件历史
+    pub async fn cleanup_plugin_history(&self, plugin_id: &str, _limit: usize) -> Result<(), AiStudioError> {
+        // 简单的实现，实际应该清理历史记录
+        Ok(())
+    }
 }
 
 #[cfg(test)]

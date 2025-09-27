@@ -1,7 +1,6 @@
 // 搜索工具实现
 
 use std::collections::HashMap;
-use async_trait::async_trait;
 use serde_json;
 use tracing::{debug, error};
 
@@ -47,7 +46,6 @@ impl SearchTool {
     }
 }
 
-#[async_trait]
 impl Tool for SearchTool {
     async fn execute(
         &self,
@@ -59,7 +57,7 @@ impl Tool for SearchTool {
         // 提取搜索查询
         let query = parameters.get("query")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: query"))?;
+            .ok_or_else(|| AiStudioError::validation("query".to_string(), "缺少必需参数: query".to_string()))?;
         
         let limit = parameters.get("limit")
             .and_then(|v| v.as_u64())

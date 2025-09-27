@@ -153,6 +153,7 @@ impl PluginManager {
             Some(LoaderConfig::default()),
         ));
         
+        let enable_hot_reload = config.enable_hot_reload;
         let manager = Self {
             lifecycle_manager,
             registry,
@@ -163,7 +164,7 @@ impl PluginManager {
         };
         
         // 启动插件扫描
-        if config.enable_hot_reload {
+        if enable_hot_reload {
             manager.start_plugin_scanner().await;
         }
         
@@ -314,7 +315,7 @@ impl PluginManager {
         // 检查插件状态
         let status = self.lifecycle_manager.get_plugin_status(plugin_id).await?;
         if status != PluginStatus::Running {
-            return Err(AiStudioError::validation("插件未运行"));
+            return Err(AiStudioError::validation("status".to_string(), "插件未运行".to_string()));
         }
         
         // 执行插件调用
@@ -348,6 +349,15 @@ impl PluginManager {
             }
             
             let instance_info = self.lifecycle_manager.get_plugin_info(plugin_id).await
+                .map(|instance| PluginInstanceInfo {
+                    plugin_id: instance.plugin_id,
+                    status: instance.status,
+                    created_at: instance.created_at,
+                    last_status_change: instance.last_status_change,
+                    restart_count: instance.restart_count,
+                    error_count: instance.error_history.len(),
+                    event_count: instance.event_history.len(),
+                })
                 .unwrap_or_else(|_| PluginInstanceInfo {
                     plugin_id: plugin_id.clone(),
                     status: status.clone(),
@@ -416,7 +426,7 @@ impl PluginManager {
         // 检查权限
         for permission in &metadata.permissions {
             if !self.config.allowed_permissions.contains(permission) {
-                return Err(AiStudioError::permission_denied(&format!(
+                return Err(AiStudioError::forbidden(&format!(
                     "插件请求的权限未被允许: {:?}", permission
                 )));
             }
@@ -427,9 +437,9 @@ impl PluginManager {
             if !dependency.optional {
                 let dep_status = self.lifecycle_manager.get_plugin_status(&dependency.plugin_id).await;
                 if dep_status.is_err() || dep_status.unwrap() != PluginStatus::Running {
-                    return Err(AiStudioError::validation(&format!(
-                        "插件依赖未满足: {}", dependency.plugin_id
-                    )));
+                        return Err(AiStudioError::validation("dependency".to_string(), &format!(
+                            "插件依赖未满足: {}", dependency.plugin_id
+                        )));
                 }
             }
         }

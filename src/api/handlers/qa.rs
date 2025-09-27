@@ -1,24 +1,21 @@
 // 问答 API 处理器
 // 实现基于 RAG 的智能问答接口
 
-use actix_web::{web, HttpResponse, Result as ActixResult, HttpRequest};
+use actix_web::{web, HttpResponse, Result as ActixResult};
 use actix_web_lab::sse::{self, Sse};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, error, debug};
-use futures_util::stream::{self, Stream};
+use tracing::{info, error, debug};
+use futures::stream::{self, Stream};
 use std::time::Duration;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
 use crate::api::responses::{ApiResponse, ApiError};
 use crate::api::extractors::{TenantContext, UserContext};
 use crate::ai::rag_engine::{RagEngine, RagQueryRequest, RagQueryResponse, RetrievalParams, GenerationParams};
-use crate::errors::AiStudioError;
 
 /// 问答请求
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -220,11 +217,11 @@ pub async fn ask_question(
           tenant_ctx.tenant.id, user_ctx.user.id, req.question);
     
     if req.question.trim().is_empty() {
-        return Ok(ApiError::bad_request("问题不能为空").into());
+        return Ok(HttpResponse::BadRequest().json(ApiError::bad_request("问题不能为空")));
     }
     
     if req.question.len() > 1000 {
-        return Ok(ApiError::bad_request("问题长度不能超过 1000 字符").into());
+        return Ok(HttpResponse::BadRequest().json(ApiError::bad_request("问题长度不能超过 1000 字符")));
     }
     
     // 生成或使用现有的会话 ID
@@ -274,7 +271,7 @@ pub async fn ask_question(
     info!("问答查询完成: query_id={}, 置信度={:.2}, 耗时={}ms", 
           response.query_id, response.confidence_score, response.stats.response_time_ms);
     
-    Ok(ApiResponse::ok(response).into())
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(response)))
 }
 
 /// 流式问答查询
@@ -305,7 +302,7 @@ pub async fn ask_question_stream(
           tenant_ctx.tenant.id, user_ctx.user.id, req.question);
     
     if req.question.trim().is_empty() {
-        return Ok(ApiError::bad_request("问题不能为空").into());
+        return Ok(HttpResponse::BadRequest().json(ApiError::bad_request("问题不能为空")));
     }
     
     let session_id = req.session_id.clone().unwrap_or_else(|| {
@@ -386,7 +383,7 @@ pub async fn get_session_history(
     );
     
     let response = PaginatedResponse::new(messages, pagination);
-    Ok(ApiResponse::ok(response).into())
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(response)))
 }
 
 /// 提交问答反馈
@@ -429,7 +426,7 @@ pub async fn submit_feedback(
         "submitted_at": Utc::now()
     });
     
-    Ok(ApiResponse::ok(response).into())
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(response)))
 }
 
 /// 获取问题建议
@@ -482,7 +479,7 @@ pub async fn get_suggestions(
         generated_at: Utc::now(),
     };
     
-    Ok(ApiResponse::ok(response).into())
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(response)))
 }
 
 /// 转换 RAG 响应为 QA 来源格式

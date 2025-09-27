@@ -224,7 +224,7 @@ pub async fn create_knowledge_base(
     
     if existing.is_some() {
         warn!("知识库名称已存在: {}", req.name);
-        return Ok(ErrorResponse::conflict::<()>("知识库名称已存在").into_http_response()?);
+                return Ok(ErrorResponse::conflict::<()>("知识库名称已存在".to_string()).into_http_response()?);
     }
     
     // 准备配置和元数据

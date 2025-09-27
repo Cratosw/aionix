@@ -9,7 +9,7 @@ use tracing::{info, warn, error, debug};
 use tokio::fs;
 
 use crate::ai::{
-    agent_runtime::{Tool, ToolMetadata},
+    agent_runtime::{Tool, ToolMetadata, ToolEnum},
     tool_manager::{ToolManager, ToolPermissions},
     tools::ToolFactory,
 };
@@ -152,6 +152,8 @@ pub struct ToolLoadResult {
     pub skipped_count: usize,
     /// 失败的工具列表
     pub failed_tools: Vec<String>,
+    /// 加载详情
+    pub details: Vec<ToolLoadDetail>,
 }
 
 /// 工具加载详情
@@ -198,6 +200,7 @@ impl ToolLoader {
             failed_count: 0,
             skipped_count: 0,
             failed_tools: Vec::new(),
+            details: Vec::new(),
         };
         
         // 首先加载内置工具
@@ -491,6 +494,7 @@ impl ToolLoader {
             failed_count: 0,
             skipped_count: 0,
             failed_tools: Vec::new(),
+            details: Vec::new(),
         };
         
         self.scan_tools_directory(&mut result).await?;

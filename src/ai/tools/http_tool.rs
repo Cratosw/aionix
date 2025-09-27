@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::time::Duration;
-use async_trait::async_trait;
 use serde_json;
 use tracing::{debug, error, warn};
 use reqwest::{Client, Method, Response};
@@ -92,7 +91,6 @@ impl HttpTool {
     }
 }
 
-#[async_trait]
 impl Tool for HttpTool {
     async fn execute(
         &self,
@@ -104,7 +102,7 @@ impl Tool for HttpTool {
         // 提取请求参数
         let url = parameters.get("url")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: url"))?;
+            .ok_or_else(|| AiStudioError::validation("url".to_string(), "缺少必需参数: url".to_string()))?;
         
         let method = parameters.get("method")
             .and_then(|v| v.as_str())
@@ -184,7 +182,7 @@ impl Tool for HttpTool {
         // 验证 URL 参数
         let url_str = parameters.get("url")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: url"))?;
+            .ok_or_else(|| AiStudioError::validation("url".to_string(), "缺少必需参数: url".to_string()))?;
         
         // 解析 URL
         let url = Url::parse(url_str).map_err(|e| {

@@ -293,7 +293,7 @@ use crate::services::tenant::TenantInfo;
             workflow::ValidationSummary,
             crate::ai::workflow_engine::WorkflowDefinition,
             crate::ai::workflow_engine::WorkflowStatus,
-            crate::ai::workflow_executor::WorkflowExecution,
+            // crate::ai::workflow_executor::WorkflowExecution, // module not available
         )
     ),
     tags(

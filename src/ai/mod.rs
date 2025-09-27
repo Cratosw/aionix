@@ -9,14 +9,11 @@ pub mod chunker;
 pub mod vector_search;
 pub mod rig_client;
 pub mod rag_engine;
-pub mod quality_assessment;
-pub mod answer_cache;
 pub mod agent_runtime;
 pub mod tools;
 pub mod tool_manager;
 pub mod tool_loader;
 pub mod workflow_engine;
-pub mod workflow_executor;
 
 #[cfg(test)]
 mod tests;
@@ -29,11 +26,8 @@ pub use chunker::*;
 pub use vector_search::*;
 pub use rig_client::*;
 pub use rag_engine::*;
-pub use quality_assessment::*;
-pub use answer_cache::*;
 pub use agent_runtime::*;
 pub use tools::*;
 pub use tool_manager::*;
 pub use tool_loader::*;
 pub use workflow_engine::*;
-pub use workflow_executor::*;

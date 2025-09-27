@@ -88,7 +88,7 @@ pub struct PluginMetadata {
 }
 
 /// 插件类型
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum PluginType {
     /// 工具插件

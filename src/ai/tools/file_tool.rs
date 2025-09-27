@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use async_trait::async_trait;
 use serde_json;
 use tracing::{debug, error, warn};
 use tokio::fs;
@@ -68,7 +67,6 @@ impl FileTool {
     }
 }
 
-#[async_trait]
 impl Tool for FileTool {
     async fn execute(
         &self,
@@ -80,10 +78,10 @@ impl Tool for FileTool {
         // 提取操作类型
         let operation = parameters.get("operation")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: operation"))?;
+            .ok_or_else(|| AiStudioError::validation("operation".to_string(), "缺少必需参数: operation".to_string()))?;
         
         if !self.config.allowed_operations.contains(&operation.to_string()) {
-            return Err(AiStudioError::validation(&format!("不允许的操作: {}", operation)));
+            return Err(AiStudioError::validation("operation".to_string(), &format!("不允许的操作: {}", operation)));
         }
         
         debug!("文件操作: {}", operation);
@@ -98,7 +96,7 @@ impl Tool for FileTool {
             "list" => self.list_directory(&parameters).await?,
             "exists" => self.check_exists(&parameters).await?,
             "size" => self.get_file_size(&parameters).await?,
-            _ => return Err(AiStudioError::validation(&format!("未实现的操作: {}", operation))),
+            _ => return Err(AiStudioError::validation("operation".to_string(), &format!("未实现的操作: {}", operation))),
         };
         
         let execution_time = start_time.elapsed().as_millis() as u64;
@@ -153,10 +151,10 @@ impl Tool for FileTool {
         // 验证操作参数
         let operation = parameters.get("operation")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: operation"))?;
+            .ok_or_else(|| AiStudioError::validation("operation".to_string(), "缺少必需参数: operation".to_string()))?;
         
         if !self.config.allowed_operations.contains(&operation.to_string()) {
-            return Err(AiStudioError::validation(&format!("不允许的操作: {}", operation)));
+            return Err(AiStudioError::validation("operation".to_string(), &format!("不允许的操作: {}", operation)));
         }
         
         // 验证路径参数
@@ -229,7 +227,7 @@ impl FileTool {
         })?;
         
         if metadata.len() > self.config.max_file_size {
-            return Err(AiStudioError::validation(&format!(
+            return Err(AiStudioError::validation("file_size".to_string(), &format!(
                 "文件太大: {} 字节，最大允许: {} 字节",
                 metadata.len(),
                 self.config.max_file_size
@@ -266,7 +264,7 @@ impl FileTool {
         
         // 检查内容大小
         if content.len() > self.config.max_file_size as usize {
-            return Err(AiStudioError::validation(&format!(
+            return Err(AiStudioError::validation("content_size".to_string(), &format!(
                 "内容太大: {} 字节，最大允许: {} 字节",
                 content.len(),
                 self.config.max_file_size
@@ -376,10 +374,13 @@ impl FileTool {
             error!("读取目录条目失败: {}", e);
             AiStudioError::internal(format!("读取目录条目失败: {}", e))
         })? {
-            let metadata = entry.metadata().await.map_err(|e| {
-                warn!("获取条目元数据失败: {}", e);
-                continue;
-            }).ok();
+            let metadata = match entry.metadata().await {
+                Ok(meta) => Some(meta),
+                Err(e) => {
+                    warn!("获取条目元数据失败: {}", e);
+                    None
+                }
+            };
             
             let file_name = entry.file_name().to_string_lossy().to_string();
             let is_dir = entry.file_type().await.map(|ft| ft.is_dir()).unwrap_or(false);

@@ -1,7 +1,6 @@
 // 计算器工具实现
 
 use std::collections::HashMap;
-use async_trait::async_trait;
 use serde_json;
 use tracing::{debug, error};
 
@@ -33,7 +32,6 @@ impl CalculatorTool {
     }
 }
 
-#[async_trait]
 impl Tool for CalculatorTool {
     async fn execute(
         &self,
@@ -45,10 +43,10 @@ impl Tool for CalculatorTool {
         // 提取操作类型
         let operation = parameters.get("operation")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: operation"))?;
+            .ok_or_else(|| AiStudioError::validation("operation".to_string(), "缺少必需参数: operation".to_string()))?;
         
         if !self.supported_operations.contains(&operation.to_string()) {
-            return Err(AiStudioError::validation(&format!("不支持的操作: {}", operation)));
+            return Err(AiStudioError::validation("operation".to_string(), &format!("不支持的操作: {}", operation)));
         }
         
         debug!("计算操作: {}", operation);
@@ -65,7 +63,7 @@ impl Tool for CalculatorTool {
             "sqrt" => self.sqrt(&parameters)?,
             "abs" => self.abs(&parameters)?,
             "round" => self.round(&parameters)?,
-            _ => return Err(AiStudioError::validation(&format!("未实现的操作: {}", operation))),
+            _ => return Err(AiStudioError::validation("operation".to_string(), &format!("未实现的操作: {}", operation))),
         };
         
         let execution_time = start_time.elapsed().as_millis() as u64;
@@ -126,10 +124,10 @@ impl Tool for CalculatorTool {
         // 验证操作参数
         let operation = parameters.get("operation")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: operation"))?;
+            .ok_or_else(|| AiStudioError::validation("operation".to_string(), "缺少必需参数: operation".to_string()))?;
         
         if !self.supported_operations.contains(&operation.to_string()) {
-            return Err(AiStudioError::validation(&format!("不支持的操作: {}", operation)));
+            return Err(AiStudioError::validation("operation".to_string(), &format!("不支持的操作: {}", operation)));
         }
         
         // 验证第一个操作数

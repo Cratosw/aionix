@@ -7,7 +7,7 @@ use sea_orm::DatabaseConnection;
 
 use crate::ai::{
     agent_runtime::{AgentRuntime, AgentRuntimeConfig, AgentRuntimeFactory},
-    rig_client::RigClient,
+    rig_client::RigAiClient,
     tool_manager::{ToolManager, ToolManagerFactory},
     tool_loader::{ToolLoader, ToolLoaderFactory},
     tools::{ToolFactory, Tool},
@@ -29,7 +29,7 @@ impl AgentService {
     /// 创建新的 Agent 服务
     pub async fn new(
         db: Arc<DatabaseConnection>,
-        rig_client: Arc<RigClient>,
+        rig_client: Arc<RigAiClient>,
         config: &AppConfig,
     ) -> Result<Self, AiStudioError> {
         info!("初始化 Agent 服务");
@@ -148,7 +148,7 @@ impl AgentServiceFactory {
     /// 创建 Agent 服务实例
     pub async fn create(
         db: Arc<DatabaseConnection>,
-        rig_client: Arc<RigClient>,
+        rig_client: Arc<RigAiClient>,
         config: &AppConfig,
     ) -> Result<Arc<AgentService>, AiStudioError> {
         let service = AgentService::new(db, rig_client, config).await?;

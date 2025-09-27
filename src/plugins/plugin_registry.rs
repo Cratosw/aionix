@@ -137,14 +137,14 @@ impl PluginRegistry {
     
     /// 注册插件
     pub async fn register_plugin(&self, metadata: PluginMetadata) -> Result<(), AiStudioError> {
-        let plugin_id = &metadata.id;
+        let plugin_id = metadata.id.clone();
         info!("注册插件到注册表: {}", plugin_id);
         
         let mut plugins = self.plugins.write().await;
         
         let now = Utc::now();
         
-        if let Some(existing) = plugins.get_mut(plugin_id) {
+        if let Some(existing) = plugins.get_mut(&plugin_id) {
             // 更新现有插件
             if self.config.enable_versioning {
                 // 添加到版本历史

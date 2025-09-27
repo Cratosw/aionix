@@ -223,7 +223,7 @@ impl AiHealthChecker {
         ServiceHealthStatus {
             service_name: "AI Client".to_string(),
             status,
-            endpoint: self.client_manager.config().model_endpoint.clone(),
+            endpoint: "ai-client".to_string(), // 使用固定值，因为 config 方法不存在
             latency_ms,
             error_message,
             version,

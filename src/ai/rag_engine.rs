@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder};
 
-use crate::ai::{RigAiClientManager, vector_search::VectorSearchService, chunker::ChunkerService};
+use crate::ai::{RigAiClientManager, vector_search::VectorSearchEngine, chunker::HybridChunker};
 use crate::db::entities::{knowledge_base, document, document_chunk, prelude::*};
 use crate::errors::AiStudioError;
 use crate::services::knowledge_base::KnowledgeBaseService;
@@ -174,13 +174,14 @@ impl Default for RagEngineConfig {
 }
 
 /// RAG 查询引擎
+#[derive(Clone)]
 pub struct RagEngine {
     /// AI 客户端管理器
     ai_client: Arc<RigAiClientManager>,
     /// 数据库连接
     db: Arc<DatabaseConnection>,
     /// 向量搜索服务
-    vector_search: Arc<VectorSearchService>,
+    vector_search: Arc<dyn VectorSearchEngine>,
     /// 知识库服务
     kb_service: Arc<dyn KnowledgeBaseService>,
     /// 引擎配置
@@ -192,7 +193,7 @@ impl RagEngine {
     pub fn new(
         ai_client: Arc<RigAiClientManager>,
         db: Arc<DatabaseConnection>,
-        vector_search: Arc<VectorSearchService>,
+        vector_search: Arc<dyn VectorSearchEngine>,
         kb_service: Arc<dyn KnowledgeBaseService>,
         config: Option<RagEngineConfig>,
     ) -> Self {
@@ -254,7 +255,7 @@ impl RagEngine {
         let (answer, confidence_score, tokens_generated) = self.generate_answer(
             &request.question,
             &context,
-            &request.generation_params.unwrap_or_default(),
+            &request.generation_params.clone().unwrap_or_default(),
         ).await?;
         let generation_time = generation_start.elapsed().as_millis() as u64;
         
@@ -267,7 +268,7 @@ impl RagEngine {
             query_id,
             answer,
             confidence_score,
-            retrieved_chunks,
+            retrieved_chunks: retrieved_chunks.clone(),
             source_documents,
             query_stats: QueryStats {
                 vectorization_time_ms: vectorization_time,
@@ -315,19 +316,18 @@ impl RagEngine {
             .unwrap_or(self.config.default_similarity_threshold);
         
         // 使用向量搜索服务检索相似文档块
-        let search_results = self.vector_search.search_similar_chunks(
-            question_embedding,
-            request.tenant_id,
-            request.knowledge_base_id,
-            top_k,
+        let search_results = self.vector_search.text_search(
+            &request.question,
+            top_k as usize,
             similarity_threshold,
+            None,
         ).await?;
         
         // 转换为 RetrievedChunk 格式
         let mut retrieved_chunks = Vec::new();
         for result in search_results {
             // 查询文档块详细信息
-            if let Some(chunk) = DocumentChunk::find_by_id(result.chunk_id)
+            if let Some(chunk) = DocumentChunk::find_by_id(result.chunk.id)
                 .one(self.db.as_ref())
                 .await
                 .map_err(|e| AiStudioError::database(format!("查询文档块失败: {}", e)))?
@@ -336,7 +336,7 @@ impl RagEngine {
                     chunk_id: chunk.id,
                     document_id: chunk.document_id,
                     content: chunk.content,
-                    similarity_score: result.similarity_score,
+                    similarity_score: result.score,
                     chunk_index: chunk.chunk_index,
                     metadata: chunk.metadata,
                 });
@@ -367,7 +367,7 @@ impl RagEngine {
                 break;
             }
             
-            context_parts.push(chunk_text);
+            context_parts.push(chunk_text.clone());
             total_length += chunk_text.len();
         }
         
@@ -493,7 +493,7 @@ impl RagEngine {
         for (doc, doc_chunks) in document_map.values() {
             let relevance_score = doc_chunks.iter()
                 .map(|chunk| chunk.similarity_score)
-                .fold(0.0, |acc, score| acc.max(score));
+                .fold(0.0_f32, |acc, score| acc.max(score));
             
             source_documents.push(SourceDocument {
                 document_id: doc.id,
@@ -559,7 +559,7 @@ impl RagEngineFactory {
     pub fn create(
         ai_client: Arc<RigAiClientManager>,
         db: Arc<DatabaseConnection>,
-        vector_search: Arc<VectorSearchService>,
+        vector_search: Arc<dyn VectorSearchEngine>,
         kb_service: Arc<dyn KnowledgeBaseService>,
         config: Option<RagEngineConfig>,
     ) -> Arc<RagEngine> {

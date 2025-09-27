@@ -8,7 +8,25 @@ use uuid::Uuid;
 use std::pin::Pin;
 use std::future::Future;
 
-use crate::db::migrations::tenant_filter::TenantContext;
+// Re-export for convenience
+pub use crate::db::migrations::tenant_filter::TenantContext;
+
+/// 用户信息
+#[derive(Debug, Clone)]
+pub struct User {
+    pub id: Uuid,
+    pub role: String,
+}
+
+/// 用户上下文
+#[derive(Debug, Clone)]
+pub struct UserContext {
+    pub user: User,
+    pub user_id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub permissions: Vec<String>,
+}
 
 /// 租户上下文提取器
 #[derive(Debug, Clone)]

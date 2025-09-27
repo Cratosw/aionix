@@ -184,11 +184,11 @@ impl PluginLoader {
         }
         
         let mut entries = fs::read_dir(&self.plugins_directory).await.map_err(|e| {
-            AiStudioError::io(format!("读取插件目录失败: {}", e))
+            AiStudioError::internal(format!("读取插件目录失败: {}", e))
         })?;
         
         while let Some(entry) = entries.next_entry().await.map_err(|e| {
-            AiStudioError::io(format!("读取目录条目失败: {}", e))
+            AiStudioError::internal(format!("读取目录条目失败: {}", e))
         })? {
             let path = entry.path();
             
@@ -211,7 +211,7 @@ impl PluginLoader {
         
         if source.starts_with("http://") || source.starts_with("https://") {
             // TODO: 实现从 URL 下载插件
-            return Err(AiStudioError::not_implemented("URL 下载暂未实现"));
+            return Err(AiStudioError::internal("URL 下载暂未实现"));
         }
         
         let path = if Path::new(source).is_absolute() {
@@ -230,13 +230,13 @@ impl PluginLoader {
     /// 检查插件大小
     async fn check_plugin_size(&self, path: &Path) -> Result<(), AiStudioError> {
         let metadata = fs::metadata(path).await.map_err(|e| {
-            AiStudioError::io(format!("获取文件元数据失败: {}", e))
+            AiStudioError::internal(format!("获取文件元数据失败: {}", e))
         })?;
         
         let size_mb = metadata.len() / (1024 * 1024);
         
         if size_mb > self.config.max_plugin_size_mb {
-            return Err(AiStudioError::validation(&format!(
+            return Err(AiStudioError::validation("file_size".to_string(), &format!(
                 "插件文件太大: {}MB，最大允许: {}MB",
                 size_mb, self.config.max_plugin_size_mb
             )));
@@ -260,15 +260,15 @@ impl PluginLoader {
                 if self.is_container_plugin(path).await? {
                     PluginFormat::Container
                 } else {
-                    return Err(AiStudioError::validation("未知的插件格式"));
+                    return Err(AiStudioError::validation("format".to_string(), "未知的插件格式".to_string()));
                 }
             }
-            _ => return Err(AiStudioError::validation("不支持的插件格式")),
+            _ => return Err(AiStudioError::validation("format".to_string(), "不支持的插件格式".to_string())),
         };
         
         // 检查格式是否支持
         if !self.config.supported_formats.contains(&format) {
-            return Err(AiStudioError::validation(&format!("不支持的插件格式: {:?}", format)));
+            return Err(AiStudioError::validation("format".to_string(), &format!("不支持的插件格式: {:?}", format)));
         }
         
         Ok(format)
@@ -300,7 +300,7 @@ impl PluginLoader {
         // TODO: 实现原生动态库加载
         // 使用 libloading 或类似库加载 .so/.dll/.dylib 文件
         
-        Err(AiStudioError::not_implemented("原生插件加载暂未实现"))
+        Err(AiStudioError::internal("原生插件加载暂未实现"))
     }
     
     /// 加载 WebAssembly 插件
@@ -310,7 +310,7 @@ impl PluginLoader {
         // TODO: 实现 WebAssembly 插件加载
         // 使用 wasmtime 或 wasmer 运行时
         
-        Err(AiStudioError::not_implemented("WASM 插件加载暂未实现"))
+        Err(AiStudioError::internal("WASM 插件加载暂未实现"))
     }
     
     /// 加载脚本插件
@@ -320,7 +320,7 @@ impl PluginLoader {
         // TODO: 实现脚本插件加载
         // 支持 JavaScript (V8/QuickJS)、Python、Lua 等
         
-        Err(AiStudioError::not_implemented("脚本插件加载暂未实现"))
+        Err(AiStudioError::internal("脚本插件加载暂未实现"))
     }
     
     /// 加载容器插件
@@ -330,13 +330,13 @@ impl PluginLoader {
         // TODO: 实现容器插件加载
         // 使用 Docker 或 Podman 运行容器化插件
         
-        Err(AiStudioError::not_implemented("容器插件加载暂未实现"))
+        Err(AiStudioError::internal("容器插件加载暂未实现"))
     }
     
     /// 分析插件包
     async fn analyze_plugin_package(&self, path: &Path) -> Result<PluginPackage, AiStudioError> {
         let metadata = fs::metadata(path).await.map_err(|e| {
-            AiStudioError::io(format!("获取文件元数据失败: {}", e))
+            AiStudioError::internal(format!("获取文件元数据失败: {}", e))
         })?;
         
         let format = self.detect_plugin_format(path).await?;
@@ -381,7 +381,7 @@ impl PluginLoader {
         use sha2::{Sha256, Digest};
         
         let content = fs::read(path).await.map_err(|e| {
-            AiStudioError::io(format!("读取文件失败: {}", e))
+            AiStudioError::internal(format!("读取文件失败: {}", e))
         })?;
         
         let mut hasher = Sha256::new();

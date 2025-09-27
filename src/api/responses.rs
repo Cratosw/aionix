@@ -26,6 +26,20 @@ pub struct ApiResponse<T> {
     pub version: String,
 }
 
+impl<T> ApiResponse<T> {
+    /// 创建成功响应
+    pub fn ok(data: T) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+}
+
 /// API 错误信息
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ApiError {
@@ -42,6 +56,30 @@ pub struct ApiError {
     /// 帮助链接
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_url: Option<String>,
+}
+
+impl ApiError {
+    /// 创建错误响应
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self {
+            code: "BAD_REQUEST".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
+    
+    /// 创建内部服务器错误
+    pub fn internal_server_error(message: impl Into<String>) -> Self {
+        Self {
+            code: "INTERNAL_ERROR".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
 }
 
 /// 成功响应构建器
@@ -383,5 +421,60 @@ impl<T: Serialize> ApiResponseExt<T> for ApiResponse<T> {
         };
 
         Ok(HttpResponse::build(status_code).json(self))
+    }
+}
+
+/// 为 ApiError 实现 Display trait
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ApiError {{ code: {}, message: {} }}", self.code, self.message)
+    }
+}
+
+/// 为 ApiError 实现 ResponseError trait
+impl actix_web::ResponseError for ApiError {
+    fn error_response(&self) -> HttpResponse {
+        let status_code = match self.code.as_str() {
+            "VALIDATION_ERROR" => actix_web::http::StatusCode::BAD_REQUEST,
+            "UNAUTHORIZED" => actix_web::http::StatusCode::UNAUTHORIZED,
+            "FORBIDDEN" => actix_web::http::StatusCode::FORBIDDEN,
+            "NOT_FOUND" => actix_web::http::StatusCode::NOT_FOUND,
+            "CONFLICT" => actix_web::http::StatusCode::CONFLICT,
+            "QUOTA_EXCEEDED" | "RATE_LIMITED" => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            "INTERNAL_ERROR" => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        HttpResponse::build(status_code).json(self)
+    }
+}
+
+/// 为 ApiResponse 实现 Display trait
+impl<T: std::fmt::Debug> std::fmt::Display for ApiResponse<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ApiResponse {{ success: {}, data: {:?}, error: {:?} }}", 
+               self.success, self.data, self.error)
+    }
+}
+
+/// 为 ApiResponse 实现 ResponseError trait
+impl<T: std::fmt::Debug> actix_web::ResponseError for ApiResponse<T> {
+    fn error_response(&self) -> HttpResponse {
+        let status_code = if self.success {
+            actix_web::http::StatusCode::OK
+        } else {
+            match self.error.as_ref().map(|e| e.code.as_str()) {
+                Some("VALIDATION_ERROR") => actix_web::http::StatusCode::BAD_REQUEST,
+                Some("UNAUTHORIZED") => actix_web::http::StatusCode::UNAUTHORIZED,
+                Some("FORBIDDEN") => actix_web::http::StatusCode::FORBIDDEN,
+                Some("NOT_FOUND") => actix_web::http::StatusCode::NOT_FOUND,
+                Some("CONFLICT") => actix_web::http::StatusCode::CONFLICT,
+                Some("QUOTA_EXCEEDED") | Some("RATE_LIMITED") => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+                Some("INTERNAL_ERROR") => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        };
+
+        HttpResponse::build(status_code).json(self)
     }
 }

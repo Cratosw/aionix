@@ -11,15 +11,14 @@ use tokio::sync::{RwLock, Mutex};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait};
 
 use crate::errors::AiStudioError;
-use serde::Serialize;
-use crate::ai::rig_client::RigClient;
+use crate::ai::rig_client::RigAiClient;
 
 /// Agent 运行时引擎
 pub struct AgentRuntime {
     /// 数据库连接
     db: Arc<DatabaseConnection>,
     /// Rig AI 客户端
-    rig_client: Arc<RigClient>,
+    rig_client: Arc<RigAiClient>,
     /// 工具注册表
     tool_registry: Arc<RwLock<ToolRegistry>>,
     /// 活跃的 Agent 实例
@@ -355,7 +354,7 @@ pub enum NextAction {
 #[derive(Debug, Default)]
 pub struct ToolRegistry {
     /// 注册的工具
-    tools: HashMap<String, Box<dyn Tool + Send + Sync>>,
+    tools: HashMap<String, ToolEnum>,
     /// 工具元数据
     tool_metadata: HashMap<String, ToolMetadata>,
 }
@@ -459,26 +458,11 @@ pub struct ToolResult {
     pub message: Option<String>,
 }
 
-impl Serialize for ToolLoadResult {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("ToolLoadResult", 4)?;
-        state.serialize_field("loaded_count", &self.loaded_count)?;
-        state.serialize_field("failed_count", &self.failed_count)?;
-        state.serialize_field("skipped_count", &self.skipped_count)?;
-        state.serialize_field("failed_tools", &self.failed_tools)?;
-        state.end()
-    }
-}
-
 impl AgentRuntime {
     /// 创建新的 Agent 运行时
     pub fn new(
         db: Arc<DatabaseConnection>,
-        rig_client: Arc<RigClient>,
+        rig_client: Arc<RigAiClient>,
         config: Option<AgentRuntimeConfig>,
     ) -> Self {
         Self {
@@ -523,7 +507,7 @@ impl AgentRuntime {
         {
             let active_agents = self.active_agents.read().await;
             if active_agents.len() >= self.config.max_concurrent_agents {
-                return Err(AiStudioError::resource_limit("达到最大并发 Agent 数量限制"));
+                return Err(AiStudioError::rate_limit(None));
             }
         }
         
@@ -666,21 +650,21 @@ impl AgentRuntime {
     /// 执行推理步骤
     async fn perform_reasoning_step(
         &self,
-        agent: &AgentInstance,
+        _agent: &AgentInstance,
     ) -> Result<ReasoningResult, AiStudioError> {
-        debug!("执行推理步骤: agent_id={}", agent.agent_id);
+        debug!("执行推理步骤: agent_id={}", _agent.agent_id);
         
         // 构建推理提示
-        let prompt = self.build_reasoning_prompt(agent).await?;
+        let prompt = format!("请分析当前情况并决定下一步行动。Agent ID: {}", _agent.agent_id);
         
         // 调用 LLM 进行推理
-        let response = self.rig_client.generate_text(&prompt, Some(agent.config.temperature)).await?;
+        let response = self.rig_client.generate_text(&prompt).await?;
         
         // 解析推理结果
-        let reasoning_result = self.parse_reasoning_response(&response, agent).await?;
+        let reasoning_result = self.parse_reasoning_response(&response.text, _agent).await?;
         
         debug!("推理步骤完成: agent_id={}, 下一步行动={:?}", 
-               agent.agent_id, reasoning_result.next_action);
+               _agent.agent_id, reasoning_result.next_action);
         
         Ok(reasoning_result)
     }
@@ -907,7 +891,7 @@ impl AgentRuntime {
     /// 注册工具
     pub async fn register_tool(
         &self,
-        tool: Box<dyn Tool + Send + Sync>,
+        tool: ToolEnum,
     ) -> Result<(), AiStudioError> {
         let metadata = tool.metadata();
         let tool_name = metadata.name.clone();
@@ -969,7 +953,7 @@ impl AgentRuntimeFactory {
     /// 创建 Agent 运行时实例
     pub fn create(
         db: Arc<DatabaseConnection>,
-        rig_client: Arc<RigClient>,
+        rig_client: Arc<RigAiClient>,
         config: Option<AgentRuntimeConfig>,
     ) -> Arc<AgentRuntime> {
         Arc::new(AgentRuntime::new(db, rig_client, config))
