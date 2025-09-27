@@ -342,7 +342,7 @@ impl HttpTool {
         
         // 检查响应大小
         if response_bytes.len() > self.config.max_response_size as usize {
-            return Err(AiStudioError::validation(&format!(
+            return Err(AiStudioError::validation("response_size".to_string(), &format!(
                 "响应太大: {} 字节，最大允许: {} 字节",
                 response_bytes.len(),
                 self.config.max_response_size
