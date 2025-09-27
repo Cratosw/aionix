@@ -2,6 +2,7 @@ use actix_web::{web, App, HttpServer, HttpResponse, Result as ActixResult};
 use actix_cors::Cors;
 use chrono::Utc;
 
+mod ai;
 mod api;
 mod config;
 mod errors;
@@ -13,7 +14,7 @@ mod services;
 use config::ConfigLoader;
 use errors::ErrorHandlerMiddleware;
 use logging::LoggingSetup;
-use db::{DatabaseManager, MigrationManager};
+use db::{DatabaseManager, MigrationManager, SeedDataManager};
 use api::routes::ApiRouteConfig;
 
 #[actix_web::main]
@@ -51,6 +52,12 @@ async fn main() -> std::io::Result<()> {
         Err(e) => {
             tracing::warn!("数据库迁移检查失败: {}", e);
         }
+    }
+
+    // 初始化默认数据（默认租户与管理员）
+    let seed_manager = SeedDataManager::new(db_manager.get_connection().clone());
+    if let Err(e) = seed_manager.seed_all().await {
+        tracing::warn!("种子数据初始化失败: {}", e);
     }
     
     // 打印配置摘要

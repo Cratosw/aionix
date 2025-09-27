@@ -1,6 +1,7 @@
 // Aionix AI Studio Library
 // 导出主要模块供测试使用
 
+pub mod ai;
 pub mod api;
 pub mod config;
 pub mod db;

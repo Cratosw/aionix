@@ -4,6 +4,7 @@
 use crate::errors::AiStudioError;
 use sea_orm::{DatabaseConnection, Statement, ConnectionTrait};
 use tracing::{info, warn, instrument};
+use bcrypt::{hash, DEFAULT_COST};
 use uuid::Uuid;
 
 /// 种子数据管理器
@@ -103,8 +104,9 @@ impl SeedDataManager {
         info!("创建管理员用户");
 
         let user_id = Uuid::new_v4();
-        // 使用简单的密码哈希（生产环境应使用 bcrypt 等）
-        let password_hash = "admin123"; // 实际应该是哈希值
+        // 使用 bcrypt 哈希密码（生产环境建议从配置读取初始密码）
+        let password_hash = hash("Admin123!", DEFAULT_COST)
+            .map_err(|e| AiStudioError::internal(format!("密码哈希失败: {}", e)))?;
         
         let sql = format!(
             r#"

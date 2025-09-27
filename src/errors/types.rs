@@ -338,6 +338,33 @@ impl AiStudioError {
             message: message.into(),
         }
     }
+
+    /// 创建 AI 错误的便捷方法
+    pub fn ai(message: impl Into<String>) -> Self {
+        Self::ai_service(message)
+    }
+
+    /// 创建 AI 超时错误
+    pub fn ai_timeout(message: impl Into<String>) -> Self {
+        Self::Timeout {
+            operation: format!("AI 操作: {}", message.into()),
+        }
+    }
+
+    /// 创建模型不可用错误
+    pub fn model_unavailable(model: impl Into<String>) -> Self {
+        Self::ai_service_with_model("模型不可用", model)
+    }
+
+    /// 创建嵌入生成错误
+    pub fn embedding_error(message: impl Into<String>) -> Self {
+        Self::ai_service(format!("嵌入生成错误: {}", message.into()))
+    }
+
+    /// 创建文本生成错误
+    pub fn text_generation_error(message: impl Into<String>) -> Self {
+        Self::ai_service(format!("文本生成错误: {}", message.into()))
+    }
 }
 
 /// 实现 ResponseError trait 以便与 Actix Web 集成
