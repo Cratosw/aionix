@@ -15,7 +15,7 @@ path = "src/bin/aionix-db.rs"
 members = ["packages/common"]
 
 [features]
-default = ["postgres", "redis", "ai"]
+default = ["postgres", "redis"]
 postgres = ["sea-orm/sqlx-postgres", "sqlx/postgres"]
 sqlite = ["sea-orm/sqlx-sqlite", "sqlx/sqlite"]
 redis = ["dep:redis"]
@@ -62,7 +62,7 @@ redis = { version = "0.24", features = [
 ], optional = true }
 
 # AI 框架 (Rig)
-rig-core = { version = "0.19", optional = true }
+rig-core = { version = "0.20", optional = true }
 
 # API 文档
 utoipa = { version = "4", features = ["actix_extras", "uuid", "chrono"] }

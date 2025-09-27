@@ -3,6 +3,7 @@
 
 pub mod ai;
 pub mod auth;
+pub mod knowledge_base;
 pub mod monitoring;
 pub mod notification;
 pub mod quota;
@@ -11,6 +12,7 @@ pub mod tenant;
 
 pub use ai::*;
 pub use auth::*;
+pub use knowledge_base::*;
 pub use monitoring::*;
 pub use notification::*;
 pub use quota::*;

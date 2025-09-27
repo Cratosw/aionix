@@ -8,11 +8,12 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
 
-use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo, SearchQuery};
+use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
 use crate::api::responses::{ApiResponse, ApiError};
 use crate::api::extractors::{TenantContext, UserContext};
 use crate::db::entities::{knowledge_base, prelude::*};
-use crate::error::AiStudioError;
+use crate::errors::AiStudioError;
+use crate::services::knowledge_base::{KnowledgeBaseService, KnowledgeBaseServiceFactory};
 
 /// 知识库创建请求
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -424,8 +425,8 @@ pub async fn get_knowledge_base(
     let response = KnowledgeBaseResponse::from(kb);
     Ok(ApiResponse::ok(response).into())
 }
-/// 更
-新知识库
+
+/// 更新知识库
 #[utoipa::path(
     put,
     path = "/api/v1/knowledge-bases/{id}",

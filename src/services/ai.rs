@@ -143,9 +143,10 @@ impl AiService for AiServiceImpl {
         debug!("为租户 {} 批量生成嵌入向量，文本数量: {}", tenant_id, texts.len());
         
         // 使用重试机制执行批量嵌入生成
+        let texts_owned = texts.to_vec();
         let responses = self.client_manager.with_retry(|| {
             let client_manager = self.client_manager.clone();
-            let texts = texts.clone();
+            let texts = texts_owned.clone();
             Box::pin(async move {
                 client_manager.generate_embeddings(&texts).await
             })

@@ -1,7 +1,7 @@
 // AI 服务健康检查模块
 // 监控 AI 模型和服务的健康状态
 
-use crate::ai::{AiClient, AiClientManager, ModelManager, ModelType};
+use crate::ai::{AiClient, AiClientManager, RigAiClientManager, ModelManager, ModelType};
 use crate::errors::AiStudioError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -54,7 +54,7 @@ pub enum HealthLevel {
 
 /// AI 健康检查器
 pub struct AiHealthChecker {
-    client_manager: Arc<AiClientManager>,
+    client_manager: Arc<RigAiClientManager>,
     model_manager: Arc<ModelManager>,
     check_interval: Duration,
     timeout_duration: Duration,
@@ -64,7 +64,7 @@ pub struct AiHealthChecker {
 impl AiHealthChecker {
     /// 创建新的健康检查器
     pub fn new(
-        client_manager: Arc<AiClientManager>,
+        client_manager: Arc<RigAiClientManager>,
         model_manager: Arc<ModelManager>,
     ) -> Self {
         Self {

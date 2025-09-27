@@ -141,7 +141,7 @@
 
 ## 5. 知识库管理 API
 
-- [ ] 5.1 实现知识库 CRUD 操作
+- [x] 5.1 实现知识库 CRUD 操作
 
   - 创建 `src/api/knowledge_base.rs` API 路由
   - 实现知识库创建、查询、更新和删除
