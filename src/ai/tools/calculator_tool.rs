@@ -33,11 +33,17 @@ impl CalculatorTool {
 }
 
 impl Tool for CalculatorTool {
-    async fn execute(
-        &self,
+    fn execute<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         parameters: HashMap<String, serde_json::Value>,
-        _context: &ExecutionContext,
-    ) -> Result<ToolResult, AiStudioError> {
+        context: &'life1 ExecutionContext,
+    ) -> core::pin::Pin<Box<dyn core::future::Future<Output = Result<ToolResult, AiStudioError>> + core::marker::Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        'life1: 'async_trait,
+        Self: 'async_trait,
+    {
+        Box::pin(async move {
         debug!("执行计算器工具");
         
         // 提取操作类型
@@ -78,6 +84,7 @@ impl Tool for CalculatorTool {
             error: None,
             execution_time_ms: execution_time,
             message: Some(format!("计算完成: {} = {}", operation, result)),
+        })
         })
     }
     

@@ -47,11 +47,17 @@ impl SearchTool {
 }
 
 impl Tool for SearchTool {
-    async fn execute(
-        &self,
+    fn execute<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         parameters: HashMap<String, serde_json::Value>,
-        _context: &ExecutionContext,
-    ) -> Result<ToolResult, AiStudioError> {
+        context: &'life1 ExecutionContext,
+    ) -> core::pin::Pin<Box<dyn core::future::Future<Output = Result<ToolResult, AiStudioError>> + core::marker::Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        'life1: 'async_trait,
+        Self: 'async_trait,
+    {
+        Box::pin(async move {
         debug!("执行搜索工具");
         
         // 提取搜索查询
@@ -85,6 +91,7 @@ impl Tool for SearchTool {
             error: None,
             execution_time_ms: execution_time,
             message: Some(format!("找到 {} 个搜索结果", search_results.len())),
+        })
         })
     }
     

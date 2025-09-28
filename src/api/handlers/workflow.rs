@@ -13,7 +13,7 @@ use crate::ai::{
     workflow_executor::{WorkflowExecutor, ExecutionRequest},
     agent_runtime::ExecutionContext,
 };
-use crate::db::entities::workflow_execution::ExecutionOptions;
+use crate::db::entities::workflow_execution::{ExecutionOptions, NotificationSettings};
 use crate::errors::AiStudioError;
 use crate::api::middleware::tenant::TenantInfo;
 
@@ -367,18 +367,24 @@ pub async fn execute_workflow(
     
     // 构建执行请求
     let execution_context = ExecutionContext {
-        tenant_id: tenant_info.tenant_id,
-        user_id: tenant_info.user_id,
+        current_task: None,
+        execution_history: Vec::new(),
+        context_variables: HashMap::new(),
         session_id: None,
-        variables: HashMap::new(),
-        environment: "production".to_string(),
+        user_id: Some(tenant_info.id),
     };
     
     let execution_options = ExecutionOptions {
         async_execution: request.async_execution,
-        timeout_seconds: request.timeout_seconds,
-        enable_detailed_logs: request.enable_detailed_logs,
-        enable_rollback: false,
+        priority: "normal".to_string(),
+        timeout_seconds: request.timeout_seconds.map(|t| t as u32),
+        enable_checkpoints: false,
+        notifications: NotificationSettings {
+            notify_on_completion: false,
+            notify_on_failure: true,
+            notification_channels: Vec::new(),
+            recipients: Vec::new(),
+        },
     };
     
     let execution_request = ExecutionRequest {

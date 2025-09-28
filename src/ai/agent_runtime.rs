@@ -209,7 +209,7 @@ pub enum MemoryType {
 }
 
 /// 执行上下文
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionContext {
     /// 当前任务
     pub current_task: Option<AgentTask>,

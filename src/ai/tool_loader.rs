@@ -157,7 +157,7 @@ pub struct ToolLoadResult {
 }
 
 /// 工具加载详情
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolLoadDetail {
     /// 工具名称
     pub tool_name: String,

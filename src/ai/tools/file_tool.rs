@@ -68,11 +68,17 @@ impl FileTool {
 }
 
 impl Tool for FileTool {
-    async fn execute(
-        &self,
+    fn execute<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         parameters: HashMap<String, serde_json::Value>,
-        _context: &ExecutionContext,
-    ) -> Result<ToolResult, AiStudioError> {
+        context: &'life1 ExecutionContext,
+    ) -> core::pin::Pin<Box<dyn core::future::Future<Output = Result<ToolResult, AiStudioError>> + core::marker::Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        'life1: 'async_trait,
+        Self: 'async_trait,
+    {
+        Box::pin(async move {
         debug!("执行文件工具");
         
         // 提取操作类型
@@ -107,6 +113,7 @@ impl Tool for FileTool {
             error: None,
             execution_time_ms: execution_time,
             message: Some(format!("文件操作 '{}' 执行完成", operation)),
+        })
         })
     }
     
