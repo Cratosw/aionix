@@ -14,7 +14,7 @@ use crate::plugins::{
     plugin_registry::{PluginSearchQuery, PluginSearchResult, PluginStatistics},
 };
 use crate::errors::AiStudioError;
-use crate::api::middleware::auth::TenantInfo;
+use crate::api::middleware::tenant::TenantInfo;
 
 /// 插件调用请求
 #[derive(Debug, Deserialize, ToSchema)]
@@ -252,7 +252,7 @@ pub async fn call_plugin(
     
     // 构建插件上下文
     let context = PluginContext {
-        tenant_id: tenant_info.tenant_id,
+        tenant_id: tenant_info.id,
         user_id: tenant_info.user_id,
         session_id: None,
         request_id: Uuid::new_v4(),

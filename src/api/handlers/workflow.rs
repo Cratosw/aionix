@@ -15,7 +15,7 @@ use crate::ai::{
 };
 use crate::db::entities::workflow_execution::ExecutionOptions;
 use crate::errors::AiStudioError;
-use crate::api::middleware::auth::TenantInfo;
+use crate::api::middleware::tenant::TenantInfo;
 
 /// 工作流创建请求
 #[derive(Debug, Deserialize, ToSchema)]
@@ -246,7 +246,7 @@ pub async fn create_workflow(
     tenant_info: web::ReqData<TenantInfo>,
     request: web::Json<CreateWorkflowRequest>,
 ) -> ActixResult<HttpResponse> {
-    debug!("创建工作流: tenant_id={}, name={}", tenant_info.tenant_id, request.name);
+    debug!("创建工作流: tenant_id={}, name={}", tenant_info.id, request.name);
     
     // 解析工作流定义
     let mut workflow = match workflow_engine.parse_workflow(&request.workflow_definition).await {
@@ -265,8 +265,8 @@ pub async fn create_workflow(
     workflow.name = request.name.clone();
     workflow.description = request.description.clone();
     workflow.version = request.version.clone();
-    workflow.tenant_id = tenant_info.tenant_id;
-    workflow.created_by = tenant_info.user_id.unwrap_or_else(Uuid::new_v4);
+    workflow.tenant_id = tenant_info.id;
+    workflow.created_by = Uuid::new_v4(); // TODO: 从认证中间件获取用户ID
     workflow.created_at = chrono::Utc::now();
     workflow.updated_at = chrono::Utc::now();
     workflow.status = WorkflowStatus::Draft;
@@ -336,7 +336,7 @@ pub async fn execute_workflow(
     request: web::Json<ExecuteWorkflowRequest>,
 ) -> ActixResult<HttpResponse> {
     let workflow_id = path.into_inner();
-    debug!("执行工作流: workflow_id={}, tenant_id={}", workflow_id, tenant_info.tenant_id);
+    debug!("执行工作流: workflow_id={}, tenant_id={}", workflow_id, tenant_info.id);
     
     // 获取工作流定义
     let workflow = match workflow_engine.get_workflow(workflow_id).await {
@@ -351,7 +351,7 @@ pub async fn execute_workflow(
     };
     
     // 检查租户权限
-    if workflow.tenant_id != tenant_info.tenant_id {
+    if workflow.tenant_id != tenant_info.id {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "error": "无权限访问此工作流"
         })));
@@ -434,10 +434,10 @@ pub async fn list_workflows(
     tenant_info: web::ReqData<TenantInfo>,
     query: web::Query<WorkflowListQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取工作流列表: tenant_id={}", tenant_info.tenant_id);
+    debug!("获取工作流列表: tenant_id={}", tenant_info.id);
     
     // 获取租户的工作流列表
-    let workflows = match workflow_engine.list_workflows(Some(tenant_info.tenant_id)).await {
+    let workflows = match workflow_engine.list_workflows(Some(tenant_info.id)).await {
         Ok(workflows) => workflows,
         Err(e) => {
             error!("获取工作流列表失败: {}", e);
@@ -528,12 +528,12 @@ pub async fn get_workflow(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let workflow_id = path.into_inner();
-    debug!("获取工作流详情: workflow_id={}, tenant_id={}", workflow_id, tenant_info.tenant_id);
+    debug!("获取工作流详情: workflow_id={}, tenant_id={}", workflow_id, tenant_info.id);
     
     match workflow_engine.get_workflow(workflow_id).await {
         Ok(workflow) => {
             // 检查租户权限
-            if workflow.tenant_id != tenant_info.tenant_id {
+            if workflow.tenant_id != tenant_info.id {
                 return Ok(HttpResponse::Forbidden().json(serde_json::json!({
                     "error": "无权限访问此工作流"
                 })));

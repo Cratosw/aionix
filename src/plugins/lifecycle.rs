@@ -53,7 +53,7 @@ impl Default for LifecycleConfig {
 }
 
 /// 插件实例
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PluginInstance {
     /// 插件 ID
     pub plugin_id: String,
@@ -76,7 +76,7 @@ pub struct PluginInstance {
 }
 
 /// 生命周期状态转换
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusTransition {
     /// 插件 ID
     pub plugin_id: String,

@@ -12,7 +12,7 @@ use std::io::Write;
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
 use crate::api::responses::{ApiResponse, ApiError, ApiResponseExt};
-use crate::api::extractors::{TenantContext, UserContext};
+use crate::api::middleware::tenant::TenantInfo;
 use crate::api::HttpResponseBuilder;
 use crate::db::entities::{document, knowledge_base, prelude::*};
 use crate::errors::AiStudioError;
@@ -244,16 +244,15 @@ impl From<document::Model> for DocumentStats {
 )]
 pub async fn create_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     req: web::Json<CreateDocumentRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("创建文档请求: 租户={}, 知识库={}, 标题={}", 
-          tenant_ctx.tenant_id, req.knowledge_base_id, req.title);
+          tenant_info.id, req.knowledge_base_id, req.title);
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(req.knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -336,11 +335,10 @@ pub async fn create_document(
 )]
 pub async fn upload_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     mut payload: Multipart,
 ) -> ActixResult<HttpResponse> {
-    info!("文档上传请求: 租户={}", tenant_ctx.tenant_id);
+    info!("文档上传请求: 租户={}", tenant_info.id);
     
     let mut knowledge_base_id: Option<Uuid> = None;
     let mut title: Option<String> = None;
@@ -439,7 +437,7 @@ pub async fn upload_document(
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -466,7 +464,7 @@ pub async fn upload_document(
     let now = Utc::now().with_timezone(&chrono::FixedOffset::east_opt(8 * 3600).unwrap());
     
     // 保存文件（这里简化处理，实际应该保存到文件系统或对象存储）
-    let file_path = format!("uploads/{}/{}", tenant_ctx.tenant_id, doc_id);
+    let file_path = format!("uploads/{}/{}", tenant_info.id, doc_id);
     
     let new_doc = document::ActiveModel {
         id: sea_orm::Set(doc_id),
@@ -605,11 +603,10 @@ fn extract_text_content(file_data: &[u8], doc_type: &document::DocumentType) -> 
 )]
 pub async fn list_documents(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     query: web::Query<DocumentSearchQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取文档列表: 租户={}", tenant_ctx.tenant_id);
+    debug!("获取文档列表: 租户={}", tenant_info.id);
     
     let mut query_params = query.into_inner();
     query_params.pagination.validate();
@@ -617,7 +614,7 @@ pub async fn list_documents(
     // 构建查询 - 首先通过知识库过滤租户
     let mut select = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id));
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id));
     
     // 添加知识库过滤
     if let Some(kb_id) = query_params.knowledge_base_id {
@@ -730,16 +727,15 @@ pub async fn list_documents(
 )]
 pub async fn get_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    debug!("获取文档详情: id={}, 租户={}", doc_id, tenant_ctx.tenant.id);
+    debug!("获取文档详情: id={}, 租户={}", doc_id, tenant_info.id);
     
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -783,18 +779,17 @@ pub async fn get_document(
 )]
 pub async fn update_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     path: web::Path<Uuid>,
     req: web::Json<UpdateDocumentRequest>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    info!("更新文档请求: id={}, 租户={}", doc_id, tenant_ctx.tenant.id);
+    info!("更新文档请求: id={}, 租户={}", doc_id, tenant_info.id);
     
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -902,17 +897,16 @@ pub async fn update_document(
 )]
 pub async fn delete_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    info!("删除文档请求: id={}, 租户={}", doc_id, tenant_ctx.tenant.id);
+    info!("删除文档请求: id={}, 租户={}", doc_id, tenant_info.id);
     
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -960,16 +954,15 @@ pub async fn delete_document(
 )]
 pub async fn get_document_stats(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    debug!("获取文档统计信息: id={}, 租户={}", doc_id, tenant_ctx.tenant.id);
+    debug!("获取文档统计信息: id={}, 租户={}", doc_id, tenant_info.id);
     
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -1012,17 +1005,16 @@ pub async fn get_document_stats(
 )]
 pub async fn reprocess_document(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    info!("重新处理文档请求: id={}, 租户={}", doc_id, tenant_ctx.tenant_id);
+    info!("重新处理文档请求: id={}, 租户={}", doc_id, tenant_info.id);
     
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -1246,12 +1238,11 @@ pub struct BatchExportResponse {
 )]
 pub async fn batch_document_operation(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
     req: web::Json<BatchDocumentRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("批量文档操作请求: 租户={}, 操作={:?}, 数量={}", 
-          tenant_ctx.tenant_id, req.operation, req.document_ids.len());
+          tenant_info.id, req.operation, req.document_ids.len());
     
     if req.document_ids.is_empty() {
         return Ok(HttpResponseBuilder::bad_request::<()>("文档 ID 列表不能为空".to_string())?);

@@ -14,7 +14,7 @@ use crate::ai::{
     agent_runtime::ExecutionContext,
 };
 use crate::errors::AiStudioError;
-use crate::api::middleware::auth::TenantInfo;
+use crate::api::middleware::tenant::TenantInfo;
 
 /// 工具调用请求
 #[derive(Debug, Deserialize, ToSchema)]
@@ -115,20 +115,20 @@ pub async fn call_tool(
     tenant_info: web::ReqData<TenantInfo>,
     request: web::Json<ToolCallRequest>,
 ) -> ActixResult<HttpResponse> {
-    debug!("调用工具: {} (tenant_id={})", request.tool_name, tenant_info.tenant_id);
+    debug!("调用工具: {} (tenant_id={})", request.tool_name, tenant_info.id);
     
     let call_id = Uuid::new_v4();
     
     // 构建执行上下文
     let mut context_variables = HashMap::new();
-    context_variables.insert("tenant_id".to_string(), serde_json::Value::String(tenant_info.tenant_id.to_string()));
+    context_variables.insert("tenant_id".to_string(), serde_json::Value::String(tenant_info.id.to_string()));
     
     let execution_context = ExecutionContext {
         current_task: None,
         execution_history: Vec::new(),
         context_variables,
         session_id: None,
-        user_id: tenant_info.user_id,
+        user_id: None, // TODO: 从认证中间件获取用户ID
     };
     
     // 构建工具调用请求
@@ -196,7 +196,7 @@ pub async fn list_tools(
     tenant_info: web::ReqData<TenantInfo>,
     query: web::Query<ToolListQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取工具列表: tenant_id={}", tenant_info.tenant_id);
+    debug!("获取工具列表: tenant_id={}", tenant_info.id);
     
     match tool_manager.list_tools().await {
         Ok(mut response) => {
@@ -252,7 +252,7 @@ pub async fn get_tool_metadata(
     path: web::Path<String>,
 ) -> ActixResult<HttpResponse> {
     let tool_name = path.into_inner();
-    debug!("获取工具元数据: {} (tenant_id={})", tool_name, tenant_info.tenant_id);
+    debug!("获取工具元数据: {} (tenant_id={})", tool_name, tenant_info.id);
     
     match tool_manager.get_tool_metadata(&tool_name).await {
         Ok(metadata) => {
@@ -298,7 +298,7 @@ pub async fn update_tool_permissions(
     request: web::Json<UpdateToolPermissionsRequest>,
 ) -> ActixResult<HttpResponse> {
     let tool_name = path.into_inner();
-    debug!("更新工具权限: {} (tenant_id={})", tool_name, tenant_info.tenant_id);
+    debug!("更新工具权限: {} (tenant_id={})", tool_name, tenant_info.id);
     
     // 获取当前权限配置
     let current_metadata = match tool_manager.get_tool_metadata(&tool_name).await {
@@ -366,7 +366,7 @@ pub async fn get_tool_usage_stats(
     path: web::Path<String>,
 ) -> ActixResult<HttpResponse> {
     let tool_name = path.into_inner();
-    debug!("获取工具使用统计: {} (tenant_id={})", tool_name, tenant_info.tenant_id);
+    debug!("获取工具使用统计: {} (tenant_id={})", tool_name, tenant_info.id);
     
     match tool_manager.get_tool_usage_stats(&tool_name).await {
         Ok(stats) => {
@@ -403,7 +403,7 @@ pub async fn get_all_tool_usage_stats(
     tool_manager: web::Data<Arc<ToolManager>>,
     tenant_info: web::ReqData<TenantInfo>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取所有工具使用统计: tenant_id={}", tenant_info.tenant_id);
+    debug!("获取所有工具使用统计: tenant_id={}", tenant_info.id);
     
     match tool_manager.get_all_usage_stats().await {
         Ok(stats) => {
@@ -437,7 +437,7 @@ pub async fn reload_tool(
     tenant_info: web::ReqData<TenantInfo>,
     request: web::Json<ReloadToolRequest>,
 ) -> ActixResult<HttpResponse> {
-    debug!("重新加载工具: {} (tenant_id={})", request.tool_name, tenant_info.tenant_id);
+    debug!("重新加载工具: {} (tenant_id={})", request.tool_name, tenant_info.id);
     
     let reload_start = chrono::Utc::now();
     
@@ -483,7 +483,7 @@ pub async fn reload_all_tools(
     tool_loader: web::Data<Arc<ToolLoader>>,
     tenant_info: web::ReqData<TenantInfo>,
 ) -> ActixResult<HttpResponse> {
-    debug!("重新加载所有工具: tenant_id={}", tenant_info.tenant_id);
+    debug!("重新加载所有工具: tenant_id={}", tenant_info.id);
     
     match tool_loader.load_all_tools().await {
         Ok(result) => {

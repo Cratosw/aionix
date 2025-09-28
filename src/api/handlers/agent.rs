@@ -165,7 +165,7 @@ pub async fn create_agent(
     tenant_info: web::ReqData<TenantInfo>,
     request: web::Json<CreateAgentRequest>,
 ) -> ActixResult<HttpResponse> {
-    debug!("创建 Agent: tenant_id={}", tenant_info.tenant_id);
+    debug!("创建 Agent: tenant_id={}", tenant_info.id);
     
     let config = AgentConfig {
         name: request.name.clone(),
@@ -175,13 +175,13 @@ pub async fn create_agent(
         reasoning_strategy: request.reasoning_strategy.clone(),
         temperature: request.temperature,
         max_tokens: request.max_tokens,
-        tenant_id: tenant_info.tenant_id,
-        created_by: tenant_info.user_id.unwrap_or_else(Uuid::new_v4),
+        tenant_id: tenant_info.id,
+        created_by: Uuid::new_v4(), // TODO: 从认证中间件获取用户ID
     };
     
     match agent_runtime.create_agent(config).await {
         Ok(agent_id) => {
-            info!("Agent 创建成功: agent_id={}, tenant_id={}", agent_id, tenant_info.tenant_id);
+            info!("Agent 创建成功: agent_id={}, tenant_id={}", agent_id, tenant_info.id);
             
             let response = CreateAgentResponse {
                 agent_id,
@@ -224,7 +224,7 @@ pub async fn execute_task(
     request: web::Json<ExecuteTaskRequest>,
 ) -> ActixResult<HttpResponse> {
     let agent_id = path.into_inner();
-    debug!("执行 Agent 任务: agent_id={}, tenant_id={}", agent_id, tenant_info.tenant_id);
+    debug!("执行 Agent 任务: agent_id={}, tenant_id={}", agent_id, tenant_info.id);
     
     let task = AgentTask {
         task_id: Uuid::new_v4(),
@@ -285,7 +285,7 @@ pub async fn get_agent_status(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let agent_id = path.into_inner();
-    debug!("获取 Agent 状态: agent_id={}, tenant_id={}", agent_id, tenant_info.tenant_id);
+    debug!("获取 Agent 状态: agent_id={}, tenant_id={}", agent_id, tenant_info.id);
     
     match agent_runtime.get_agent_state(agent_id).await {
         Ok(state) => {
@@ -336,7 +336,7 @@ pub async fn stop_agent(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let agent_id = path.into_inner();
-    debug!("停止 Agent: agent_id={}, tenant_id={}", agent_id, tenant_info.tenant_id);
+    debug!("停止 Agent: agent_id={}, tenant_id={}", agent_id, tenant_info.id);
     
     match agent_runtime.stop_agent(agent_id).await {
         Ok(_) => {
@@ -375,7 +375,7 @@ pub async fn list_agents(
     tenant_info: web::ReqData<TenantInfo>,
     query: web::Query<ListQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("列出 Agent: tenant_id={}", tenant_info.tenant_id);
+    debug!("列出 Agent: tenant_id={}", tenant_info.id);
     
     // TODO: 实现实际的 Agent 列表查询
     // 目前返回空列表
@@ -402,7 +402,7 @@ pub async fn cleanup_agents(
     agent_runtime: web::Data<Arc<AgentRuntime>>,
     tenant_info: web::ReqData<TenantInfo>,
 ) -> ActixResult<HttpResponse> {
-    debug!("清理非活跃 Agent: tenant_id={}", tenant_info.tenant_id);
+    debug!("清理非活跃 Agent: tenant_id={}", tenant_info.id);
     
     match agent_runtime.cleanup_inactive_agents().await {
         Ok(cleaned_count) => {
