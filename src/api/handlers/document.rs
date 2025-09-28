@@ -2,18 +2,18 @@
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use actix_multipart::Multipart;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait, ActiveModelTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
-use futures_util::TryStreamExt;
 use std::io::Write;
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
-use crate::api::responses::{ApiResponse, ApiError};
+use crate::api::responses::{ApiResponse, ApiError, ApiResponseExt};
 use crate::api::extractors::{TenantContext, UserContext};
+use crate::api::HttpResponseBuilder;
 use crate::db::entities::{document, knowledge_base, prelude::*};
 use crate::errors::AiStudioError;
 use crate::services::knowledge_base::KnowledgeBaseService;
@@ -249,11 +249,11 @@ pub async fn create_document(
     req: web::Json<CreateDocumentRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("创建文档请求: 租户={}, 知识库={}, 标题={}", 
-          tenant_ctx.tenant.id, req.knowledge_base_id, req.title);
+          tenant_ctx.tenant_id, req.knowledge_base_id, req.title);
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(req.knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -313,7 +313,7 @@ pub async fn create_document(
     info!("文档创建成功: id={}, 标题={}", doc.id, doc.title);
     
     let response = DocumentResponse::from(doc);
-    Ok(ApiResponse::created(response).into())
+    Ok(ApiResponse::created(response).into_http_response()?)
 }
 
 /// 上传文档文件
@@ -340,7 +340,7 @@ pub async fn upload_document(
     _user_ctx: UserContext,
     mut payload: Multipart,
 ) -> ActixResult<HttpResponse> {
-    info!("文档上传请求: 租户={}", tenant_ctx.tenant.id);
+    info!("文档上传请求: 租户={}", tenant_ctx.tenant_id);
     
     let mut knowledge_base_id: Option<Uuid> = None;
     let mut title: Option<String> = None;
@@ -439,7 +439,7 @@ pub async fn upload_document(
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -466,7 +466,7 @@ pub async fn upload_document(
     let now = Utc::now().with_timezone(&chrono::FixedOffset::east_opt(8 * 3600).unwrap());
     
     // 保存文件（这里简化处理，实际应该保存到文件系统或对象存储）
-    let file_path = format!("uploads/{}/{}", tenant_ctx.tenant.id, doc_id);
+    let file_path = format!("uploads/{}/{}", tenant_ctx.tenant_id, doc_id);
     
     let new_doc = document::ActiveModel {
         id: sea_orm::Set(doc_id),
@@ -511,7 +511,7 @@ pub async fn upload_document(
         message: "文档上传成功，正在处理中".to_string(),
     };
     
-    Ok(ApiResponse::created(response).into())
+    Ok(ApiResponse::created(response).into_http_response()?)
 }
 
 /// 辅助函数：确定文档类型
@@ -617,7 +617,7 @@ pub async fn list_documents(
     _user_ctx: UserContext,
     query: web::Query<DocumentSearchQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取文档列表: 租户={}", tenant_ctx.tenant.id);
+    debug!("获取文档列表: 租户={}", tenant_ctx.tenant_id);
     
     let mut query_params = query.into_inner();
     query_params.pagination.validate();
@@ -625,7 +625,7 @@ pub async fn list_documents(
     // 构建查询 - 首先通过知识库过滤租户
     let mut select = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id));
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id));
     
     // 添加知识库过滤
     if let Some(kb_id) = query_params.knowledge_base_id {
@@ -713,7 +713,7 @@ pub async fn list_documents(
     );
     
     let response = PaginatedResponse::new(responses, pagination);
-    Ok(ApiResponse::ok(response).into())
+    Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
 /// 获取文档详情
@@ -747,7 +747,7 @@ pub async fn get_document(
     
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -759,12 +759,12 @@ pub async fn get_document(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(ApiError::not_found("文档不存在").into());
+            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
         }
     };
     
     let response = DocumentResponse::from(doc);
-    Ok(ApiResponse::ok(response).into())
+    Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
 /// 更新文档
@@ -802,7 +802,7 @@ pub async fn update_document(
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -814,7 +814,7 @@ pub async fn update_document(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(ApiError::not_found("文档不存在").into());
+            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
         }
     };
     
@@ -877,7 +877,7 @@ pub async fn update_document(
     active_model.updated_at = sea_orm::Set(now);
     
     // 执行更新
-    let updated_doc = active_model.update(db.as_ref()).await.map_err(|e| {
+    let updated_doc = Document::update(active_model).exec(db.as_ref()).await.map_err(|e| {
         error!("更新文档失败: {}", e);
         ApiError::internal_server_error("更新文档失败")
     })?;
@@ -885,7 +885,7 @@ pub async fn update_document(
     info!("文档更新成功: id={}, 标题={}", updated_doc.id, updated_doc.title);
     
     let response = DocumentResponse::from(updated_doc);
-    Ok(ApiResponse::ok(response).into())
+    Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
 /// 删除文档
@@ -920,7 +920,7 @@ pub async fn delete_document(
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -943,7 +943,7 @@ pub async fn delete_document(
         })?;
     
     info!("文档删除成功: id={}", doc_id);
-    Ok(ApiResponse::no_content().into())
+    Ok(HttpResponseBuilder::no_content()?)
 }
 
 /// 获取文档统计信息
@@ -977,7 +977,7 @@ pub async fn get_document_stats(
     
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -989,12 +989,12 @@ pub async fn get_document_stats(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(ApiError::not_found("文档不存在").into());
+            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
         }
     };
     
     let stats = DocumentStats::from(doc);
-    Ok(ApiResponse::ok(stats).into())
+    Ok(ApiResponse::ok(stats).into_http_response()?)
 }
 
 /// 重新处理文档
@@ -1025,12 +1025,12 @@ pub async fn reprocess_document(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let doc_id = path.into_inner();
-    info!("重新处理文档请求: id={}, 租户={}", doc_id, tenant_ctx.tenant.id);
+    info!("重新处理文档请求: id={}, 租户={}", doc_id, tenant_ctx.tenant_id);
     
     // 查找文档
     let doc = Document::find_by_id(doc_id)
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -1038,18 +1038,18 @@ pub async fn reprocess_document(
             ApiError::internal_server_error("查询文档失败")
         })?;
     
+    // 检查文档是否存在
     let doc = match doc {
-        Some(doc) => doc,
+        Some(d) => d,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(ApiError::not_found("文档不存在").into());
+            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
         }
     };
     
     // 检查文档状态
-    if doc.is_processing() {
-        warn!("文档正在处理中，无法重新处理: id={}", doc_id);
-        return Ok(ApiError::conflict("文档正在处理中，请稍后再试").into());
+    if doc.status == document::DocumentStatus::Processing {
+        return Ok(HttpResponseBuilder::conflict::<()>("文档正在处理中，请稍后再试".to_string())?);
     }
     
     // 更新文档状态为处理中
@@ -1062,7 +1062,7 @@ pub async fn reprocess_document(
     active_model.error_message = sea_orm::Set(None);
     active_model.updated_at = sea_orm::Set(now);
     
-    let updated_doc = active_model.update(db.as_ref()).await.map_err(|e| {
+    let updated_doc = document::Entity::update(active_model).exec(db.as_ref()).await.map_err(|e| {
         error!("更新文档状态失败: {}", e);
         ApiError::internal_server_error("更新文档状态失败")
     })?;
@@ -1071,15 +1071,15 @@ pub async fn reprocess_document(
     // 目前只是返回任务已启动的响应
     
     info!("文档重新处理任务已启动: id={}", doc_id);
-    
+
     let response = serde_json::json!({
         "message": "重新处理任务已启动",
         "document_id": doc_id,
         "status": "processing",
         "started_at": now
     });
-    
-    Ok(ApiResponse::accepted(response).into())
+
+    Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
 /// 更新配置路由
@@ -1272,14 +1272,14 @@ pub async fn batch_document_operation(
     req: web::Json<BatchDocumentRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("批量文档操作请求: 租户={}, 操作={:?}, 数量={}", 
-          tenant_ctx.tenant.id, req.operation, req.document_ids.len());
+          tenant_ctx.tenant_id, req.operation, req.document_ids.len());
     
     if req.document_ids.is_empty() {
-        return Ok(ApiError::bad_request("文档 ID 列表不能为空").into());
+        return Ok(HttpResponseBuilder::bad_request::<()>("文档 ID 列表不能为空".to_string())?);
     }
     
     if req.document_ids.len() > 1000 {
-        return Ok(ApiError::bad_request("批量操作文档数量不能超过 1000").into());
+        return Ok(HttpResponseBuilder::bad_request::<()>("批量操作文档数量不能超过 1000".to_string())?);
     }
     
     let batch_id = Uuid::new_v4();
@@ -1288,7 +1288,7 @@ pub async fn batch_document_operation(
     // 验证所有文档都属于当前租户
     let valid_docs = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .filter(document::Column::Id.is_in(req.document_ids.clone()))
         .all(db.as_ref())
         .await
@@ -1386,7 +1386,7 @@ pub async fn batch_document_operation(
                 active_model.error_message = sea_orm::Set(None);
                 active_model.updated_at = sea_orm::Set(now);
                 
-                match active_model.update(db.as_ref()).await {
+                match document::Entity::update(active_model).exec(db.as_ref()).await {
                     Ok(_) => {
                         response.success_ids.push(active_model.id.unwrap());
                         response.success_count += 1;
@@ -1425,7 +1425,7 @@ pub async fn batch_document_operation(
     info!("批量文档操作完成: batch_id={}, 成功={}, 失败={}", 
           batch_id, response.success_count, response.error_count);
     
-    Ok(ApiResponse::accepted(response).into())
+    Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
 /// 内部更新文档函数
@@ -1473,9 +1473,9 @@ async fn update_document_internal(
     
     active_model.updated_at = sea_orm::Set(now);
     
-    active_model.update(db).await.map_err(|e| {
+    document::Entity::update(active_model).exec(db).await.map_err(|e| {
         AiStudioError::database(format!("更新文档失败: {}", e))
-    })
+    })?.into()
 }
 
 /// 批量导入文档
@@ -1600,7 +1600,7 @@ pub async fn batch_import_documents(
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -1663,12 +1663,12 @@ pub async fn batch_export_documents(
     // 构建查询条件
     let mut query = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id));
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id));
     
     if let Some(kb_id) = req.knowledge_base_id {
         // 检查知识库是否存在
         let kb = KnowledgeBase::find_by_id(kb_id)
-            .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+            .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
             .one(db.as_ref())
             .await
             .map_err(|e| {
@@ -1678,7 +1678,7 @@ pub async fn batch_export_documents(
         
         if kb.is_none() {
             warn!("知识库不存在或无权访问: {}", kb_id);
-            return Ok(ApiError::not_found("知识库不存在").into());
+            return Ok(HttpResponseBuilder::not_found::<()>("知识库")?);
         }
         
         query = query.filter(document::Column::KnowledgeBaseId.eq(kb_id));

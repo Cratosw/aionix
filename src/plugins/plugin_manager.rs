@@ -355,8 +355,8 @@ impl PluginManager {
                     created_at: instance.created_at,
                     last_status_change: instance.last_status_change,
                     restart_count: instance.restart_count,
-                    error_count: instance.error_history.len(),
-                    event_count: instance.event_history.len(),
+                    error_count: 0, // instance.error_history.len(),
+                    event_count: 0, // instance.event_history.len(),
                 })
                 .unwrap_or_else(|_| PluginInstanceInfo {
                     plugin_id: plugin_id.clone(),

@@ -10,8 +10,8 @@ use utoipa::ToSchema;
 use crate::ai::agent_runtime::{
     AgentRuntime, AgentConfig, AgentTask, TaskPriority, TaskStatus, AgentState, ReasoningStrategy
 };
+use crate::api::middleware::tenant::TenantInfo;
 use crate::errors::AiStudioError;
-use crate::middleware::auth::TenantInfo;
 
 /// Agent 创建请求
 #[derive(Debug, Deserialize, ToSchema)]

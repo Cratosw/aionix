@@ -38,6 +38,30 @@ impl<T> ApiResponse<T> {
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
+    
+    /// 创建创建成功响应
+    pub fn created(data: T) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+    
+    /// 创建无内容响应
+    pub fn no_content() -> Self {
+        Self {
+            success: true,
+            data: None,
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
 }
 
 /// API 错误信息
@@ -74,6 +98,50 @@ impl ApiError {
     pub fn internal_server_error(message: impl Into<String>) -> Self {
         Self {
             code: "INTERNAL_ERROR".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
+    
+    /// 创建资源不存在错误响应
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self {
+            code: "NOT_FOUND".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
+    
+    /// 创建冲突错误响应
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self {
+            code: "CONFLICT".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
+    
+    /// 创建请求实体过大错误响应
+    pub fn payload_too_large(message: impl Into<String>) -> Self {
+        Self {
+            code: "PAYLOAD_TOO_LARGE".to_string(),
+            message: message.into(),
+            details: None,
+            field: None,
+            help_url: None,
+        }
+    }
+    
+    /// 创建接受响应
+    pub fn accepted(message: impl Into<String>) -> Self {
+        Self {
+            code: "ACCEPTED".to_string(),
             message: message.into(),
             details: None,
             field: None,
@@ -370,6 +438,14 @@ impl HttpResponseBuilder {
     /// 创建 409 Conflict 响应
     pub fn conflict<T: serde::Serialize>(message: String) -> ActixResult<HttpResponse> {
         Ok(HttpResponse::Conflict().json(ErrorResponse::conflict::<T>(message)))
+    }
+
+    /// 创建 413 Payload Too Large 响应
+    pub fn payload_too_large<T: serde::Serialize>(message: &str) -> ActixResult<HttpResponse> {
+        Ok(HttpResponse::PayloadTooLarge().json(ErrorResponse::error::<T>(
+            "PAYLOAD_TOO_LARGE".to_string(),
+            message.to_string(),
+        )))
     }
 
     /// 创建 422 Unprocessable Entity 响应

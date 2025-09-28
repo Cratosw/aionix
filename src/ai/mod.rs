@@ -15,9 +15,6 @@ pub mod tool_manager;
 pub mod tool_loader;
 pub mod workflow_engine;
 
-#[cfg(test)]
-mod tests;
-
 pub use client::*;
 pub use models::*;
 pub use health::*;

@@ -53,7 +53,7 @@ impl Default for LifecycleConfig {
 }
 
 /// 插件实例
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PluginInstance {
     /// 插件 ID
     pub plugin_id: String,
@@ -102,7 +102,7 @@ impl PluginLifecycleManager {
             config: config.unwrap_or_default(),
         }
     }
-    
+
     /// 注册插件
     pub async fn register_plugin(
         &self,
@@ -111,7 +111,7 @@ impl PluginLifecycleManager {
         config: PluginConfig,
     ) -> Result<(), AiStudioError> {
         info!("注册插件: {}", plugin_id);
-        
+
         let instance = PluginInstance {
             plugin_id: plugin_id.clone(),
             plugin,
@@ -123,34 +123,34 @@ impl PluginLifecycleManager {
             error_history: Vec::new(),
             event_history: Vec::new(),
         };
-        
+
         let mut plugins = self.plugins.write().await;
         plugins.insert(plugin_id.clone(), instance);
-        
+
         // 发送注册事件
         self.emit_event(&plugin_id, PluginEventType::Loaded, serde_json::Value::Null).await;
-        
+
         Ok(())
     }
-    
+
     /// 初始化插件
     pub async fn initialize_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         info!("初始化插件: {}", plugin_id);
-        
+
         self.transition_status(plugin_id, PluginStatus::Initializing, "开始初始化").await?;
-        
+
         let result = {
             let mut plugins = self.plugins.write().await;
             let instance = plugins.get_mut(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             // 执行初始化
             tokio::time::timeout(
                 tokio::time::Duration::from_secs(self.config.initialization_timeout_seconds),
                 instance.plugin.initialize(instance.config.clone())
             ).await
         };
-        
+
         match result {
             Ok(Ok(_)) => {
                 self.transition_status(plugin_id, PluginStatus::Initialized, "初始化成功").await?;
@@ -168,46 +168,46 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 启动插件
     pub async fn start_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         info!("启动插件: {}", plugin_id);
-        
+
         // 检查当前状态
         {
             let plugins = self.plugins.read().await;
             let instance = plugins.get(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             if instance.status != PluginStatus::Initialized {
-                return Err(AiStudioError::validation("插件未初始化"));
+                return Err(AiStudioError::validation("插件未初始化", "插件必须先初始化才能启动"));
             }
         }
-        
+
         self.transition_status(plugin_id, PluginStatus::Starting, "开始启动").await?;
-        
+
         let result = {
             let mut plugins = self.plugins.write().await;
             let instance = plugins.get_mut(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             // 执行启动
             tokio::time::timeout(
                 tokio::time::Duration::from_secs(self.config.startup_timeout_seconds),
                 instance.plugin.start()
             ).await
         };
-        
+
         match result {
             Ok(Ok(_)) => {
                 self.transition_status(plugin_id, PluginStatus::Running, "启动成功").await?;
                 self.emit_event(plugin_id, PluginEventType::Started, serde_json::Value::Null).await;
-                
+
                 // 启动健康检查
                 if self.config.health_check_interval_seconds > 0 {
                     self.start_health_check(plugin_id).await;
                 }
-                
+
                 Ok(())
             }
             Ok(Err(e)) => {
@@ -221,25 +221,25 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 停止插件
     pub async fn stop_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         info!("停止插件: {}", plugin_id);
-        
+
         self.transition_status(plugin_id, PluginStatus::Stopping, "开始停止").await?;
-        
+
         let result = {
             let mut plugins = self.plugins.write().await;
             let instance = plugins.get_mut(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             // 执行停止
             tokio::time::timeout(
                 tokio::time::Duration::from_secs(self.config.shutdown_timeout_seconds),
                 instance.plugin.stop()
             ).await
         };
-        
+
         match result {
             Ok(Ok(_)) => {
                 self.transition_status(plugin_id, PluginStatus::Stopped, "停止成功").await?;
@@ -257,35 +257,35 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 卸载插件
     pub async fn unload_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         info!("卸载插件: {}", plugin_id);
-        
+
         // 先停止插件
         if let Ok(status) = self.get_plugin_status(plugin_id).await {
             if status == PluginStatus::Running {
                 self.stop_plugin(plugin_id).await?;
             }
         }
-        
+
         self.transition_status(plugin_id, PluginStatus::Unloading, "开始卸载").await?;
-        
+
         let result = {
             let mut plugins = self.plugins.write().await;
             let instance = plugins.get_mut(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             // 执行卸载
             instance.plugin.shutdown().await
         };
-        
+
         match result {
             Ok(_) => {
                 // 从管理器中移除插件
                 let mut plugins = self.plugins.write().await;
                 plugins.remove(plugin_id);
-                
+
                 self.emit_event(plugin_id, PluginEventType::Unloaded, serde_json::Value::Null).await;
                 Ok(())
             }
@@ -295,42 +295,42 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 重启插件
     pub async fn restart_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         info!("重启插件: {}", plugin_id);
-        
+
         // 增加重启计数
         {
             let mut plugins = self.plugins.write().await;
             if let Some(instance) = plugins.get_mut(plugin_id) {
                 instance.restart_count += 1;
-                
+
                 // 检查重启次数限制
                 if instance.restart_count > self.config.max_restart_attempts {
-                    return Err(AiStudioError::resource_limit("超过最大重启次数"));
+                    return Err(AiStudioError::rate_limit(None));
                 }
             }
         }
-        
+
         // 停止插件
         if let Err(e) = self.stop_plugin(plugin_id).await {
             warn!("停止插件失败: {} - {}", plugin_id, e);
         }
-        
+
         // 重新启动
         self.start_plugin(plugin_id).await
     }
-    
+
     /// 获取插件状态
     pub async fn get_plugin_status(&self, plugin_id: &str) -> Result<PluginStatus, AiStudioError> {
         let plugins = self.plugins.read().await;
         let instance = plugins.get(plugin_id)
             .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-        
+
         Ok(instance.status.clone())
     }
-    
+
     /// 获取所有插件状态
     pub async fn get_all_plugin_status(&self) -> HashMap<String, PluginStatus> {
         let plugins = self.plugins.read().await;
@@ -338,7 +338,7 @@ impl PluginLifecycleManager {
             .map(|(id, instance)| (id.clone(), instance.status.clone()))
             .collect()
     }
-    
+
     /// 状态转换
     async fn transition_status(
         &self,
@@ -349,14 +349,14 @@ impl PluginLifecycleManager {
         let mut plugins = self.plugins.write().await;
         let instance = plugins.get_mut(plugin_id)
             .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-        
+
         let old_status = instance.status.clone();
         instance.status = new_status.clone();
         instance.last_status_change = Utc::now();
-        
-        debug!("插件状态转换: {} - {:?} -> {:?} ({})", 
+
+        debug!("插件状态转换: {} - {:?} -> {:?} ({})",
                plugin_id, old_status, new_status, reason);
-        
+
         // 记录状态转换事件
         let transition = StatusTransition {
             plugin_id: plugin_id.to_string(),
@@ -367,7 +367,7 @@ impl PluginLifecycleManager {
             success: true,
             error: None,
         };
-        
+
         instance.event_history.push(PluginEvent {
             event_id: Uuid::new_v4(),
             plugin_id: plugin_id.to_string(),
@@ -375,10 +375,10 @@ impl PluginLifecycleManager {
             data: serde_json::to_value(transition).unwrap_or_default(),
             timestamp: Utc::now(),
         });
-        
+
         Ok(())
     }
-    
+
     /// 处理插件错误
     async fn handle_plugin_error(
         &self,
@@ -386,9 +386,9 @@ impl PluginLifecycleManager {
         error_type: PluginErrorType,
         message: &str,
     ) {
-        error!("插件错误: {} - {} - {}", plugin_id, 
+        error!("插件错误: {} - {} - {}", plugin_id,
                serde_json::to_string(&error_type).unwrap_or_default(), message);
-        
+
         let plugin_error = PluginError {
             error_type,
             message: message.to_string(),
@@ -396,7 +396,7 @@ impl PluginLifecycleManager {
             plugin_id: plugin_id.to_string(),
             timestamp: Utc::now(),
         };
-        
+
         // 记录错误
         {
             let mut plugins = self.plugins.write().await;
@@ -406,11 +406,11 @@ impl PluginLifecycleManager {
                 instance.last_status_change = Utc::now();
             }
         }
-        
+
         // 发送错误事件
-        self.emit_event(plugin_id, PluginEventType::Error, 
+        self.emit_event(plugin_id, PluginEventType::Error,
                        serde_json::to_value(plugin_error).unwrap_or_default()).await;
-        
+
         // 如果启用自动重启，尝试重启插件
         if self.config.enable_auto_restart {
             if let Err(e) = self.restart_plugin(plugin_id).await {
@@ -418,7 +418,7 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 发送事件
     async fn emit_event(
         &self,
@@ -433,37 +433,37 @@ impl PluginLifecycleManager {
             data,
             timestamp: Utc::now(),
         };
-        
+
         // 记录事件到插件实例
         {
             let mut plugins = self.plugins.write().await;
             if let Some(instance) = plugins.get_mut(plugin_id) {
                 instance.event_history.push(event.clone());
-                
+
                 // 限制事件历史长度
                 if instance.event_history.len() > 100 {
                     instance.event_history.remove(0);
                 }
             }
         }
-        
+
         debug!("插件事件: {} - {:?}", plugin_id, event.event_type);
     }
-    
+
     /// 启动健康检查
     async fn start_health_check(&self, plugin_id: &str) {
         let plugin_id = plugin_id.to_string();
         let manager = self.clone();
         let interval = self.config.health_check_interval_seconds;
-        
+
         tokio::spawn(async move {
             let mut interval_timer = tokio::time::interval(
                 tokio::time::Duration::from_secs(interval)
             );
-            
+
             loop {
                 interval_timer.tick().await;
-                
+
                 // 检查插件是否仍在运行
                 if let Ok(status) = manager.get_plugin_status(&plugin_id).await {
                     if status != PluginStatus::Running {
@@ -472,7 +472,7 @@ impl PluginLifecycleManager {
                 } else {
                     break;
                 }
-                
+
                 // 执行健康检查
                 if let Err(e) = manager.perform_health_check(&plugin_id).await {
                     error!("插件健康检查失败: {} - {}", plugin_id, e);
@@ -480,27 +480,27 @@ impl PluginLifecycleManager {
             }
         });
     }
-    
+
     /// 执行健康检查
     async fn perform_health_check(&self, plugin_id: &str) -> Result<(), AiStudioError> {
         let health_result = {
             let plugins = self.plugins.read().await;
             let instance = plugins.get(plugin_id)
                 .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-            
+
             instance.plugin.health_check().await
         };
-        
+
         match health_result {
             Ok(health) => {
                 if !health.healthy {
                     warn!("插件健康检查失败: {} - {}", plugin_id, health.message);
                     self.handle_plugin_error(plugin_id, PluginErrorType::ExecutionError, &health.message).await;
                 }
-                
-                self.emit_event(plugin_id, PluginEventType::HealthCheck, 
+
+                self.emit_event(plugin_id, PluginEventType::HealthCheck,
                                serde_json::to_value(health).unwrap_or_default()).await;
-                
+
                 Ok(())
             }
             Err(e) => {
@@ -509,13 +509,13 @@ impl PluginLifecycleManager {
             }
         }
     }
-    
+
     /// 获取插件实例信息
     pub async fn get_plugin_info(&self, plugin_id: &str) -> Result<PluginInstanceInfo, AiStudioError> {
         let plugins = self.plugins.read().await;
         let instance = plugins.get(plugin_id)
             .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-        
+
         Ok(PluginInstanceInfo {
             plugin_id: instance.plugin_id.clone(),
             status: instance.status.clone(),
@@ -526,23 +526,23 @@ impl PluginLifecycleManager {
             event_count: instance.event_history.len(),
         })
     }
-    
+
     /// 清理插件历史
     pub async fn cleanup_plugin_history(&self, plugin_id: &str, max_history_size: usize) -> Result<(), AiStudioError> {
         let mut plugins = self.plugins.write().await;
         let instance = plugins.get_mut(plugin_id)
             .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
-        
+
         // 清理错误历史
         if instance.error_history.len() > max_history_size {
             instance.error_history.drain(0..instance.error_history.len() - max_history_size);
         }
-        
+
         // 清理事件历史
         if instance.event_history.len() > max_history_size {
             instance.event_history.drain(0..instance.event_history.len() - max_history_size);
         }
-        
+
         Ok(())
     }
 }
@@ -575,115 +575,10 @@ pub struct PluginInstanceInfo {
     pub event_count: usize,
 }
 
-impl PluginLifecycleManager {
-    /// 创建新的生命周期管理器
-    pub fn new(config: Option<LifecycleConfig>) -> Self {
-        Self {
-            plugins: Arc::new(RwLock::new(HashMap::new())),
-            config: config.unwrap_or_default(),
-        }
-    }
-    
-    /// 注册插件
-    pub async fn register_plugin(
-        &self,
-        plugin_id: String,
-        plugin: Box<dyn Plugin>,
-        config: PluginConfig,
-    ) -> Result<(), AiStudioError> {
-        let mut plugins = self.plugins.write().await;
-        plugins.insert(plugin_id.clone(), PluginInstance {
-            plugin_id: plugin_id.clone(),
-            plugin,
-            config,
-            status: PluginStatus::Initialized,
-            restart_count: 0,
-            created_at: Utc::now(),
-            last_status_change: Utc::now(),
-            error_history: Vec::new(),
-            event_history: Vec::new(),
-        });
-        Ok(())
-    }
-    
-    /// 初始化插件
-    pub async fn initialize_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
-        let mut plugins = self.plugins.write().await;
-        if let Some(instance) = plugins.get_mut(plugin_id) {
-            instance.status = PluginStatus::Initialized;
-        }
-        Ok(())
-    }
-    
-    /// 启动插件
-    pub async fn start_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
-        let mut plugins = self.plugins.write().await;
-        if let Some(instance) = plugins.get_mut(plugin_id) {
-            instance.status = PluginStatus::Running;
-        }
-        Ok(())
-    }
-    
-    /// 停止插件
-    pub async fn stop_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
-        let mut plugins = self.plugins.write().await;
-        if let Some(instance) = plugins.get_mut(plugin_id) {
-            instance.status = PluginStatus::Stopped;
-        }
-        Ok(())
-    }
-    
-    /// 卸载插件
-    pub async fn unload_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
-        let mut plugins = self.plugins.write().await;
-        plugins.remove(plugin_id);
-        Ok(())
-    }
-    
-    /// 重启插件
-    pub async fn restart_plugin(&self, plugin_id: &str) -> Result<(), AiStudioError> {
-        self.stop_plugin(plugin_id).await?;
-        self.start_plugin(plugin_id).await?;
-        Ok(())
-    }
-    
-    /// 获取插件状态
-    pub async fn get_plugin_status(&self, plugin_id: &str) -> Result<PluginStatus, AiStudioError> {
-        let plugins = self.plugins.read().await;
-        if let Some(instance) = plugins.get(plugin_id) {
-            Ok(instance.status.clone())
-        } else {
-            Err(AiStudioError::not_found("插件不存在"))
-        }
-    }
-    
-    /// 获取所有插件状态
-    pub async fn get_all_plugin_status(&self) -> HashMap<String, PluginStatus> {
-        let plugins = self.plugins.read().await;
-        plugins.iter().map(|(id, instance)| (id.clone(), instance.status.clone())).collect()
-    }
-    
-    /// 获取插件信息
-    pub async fn get_plugin_info(&self, plugin_id: &str) -> Result<PluginInstance, AiStudioError> {
-        let plugins = self.plugins.read().await;
-        if let Some(instance) = plugins.get(plugin_id) {
-            Ok(instance.clone())
-        } else {
-            Err(AiStudioError::not_found("插件不存在"))
-        }
-    }
-    
-    /// 清理插件历史
-    pub async fn cleanup_plugin_history(&self, plugin_id: &str, _limit: usize) -> Result<(), AiStudioError> {
-        // 简单的实现，实际应该清理历史记录
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_lifecycle_config_default() {
         let config = LifecycleConfig::default();
@@ -691,7 +586,7 @@ mod tests {
         assert_eq!(config.enable_auto_restart, true);
         assert_eq!(config.max_restart_attempts, 3);
     }
-    
+
     #[test]
     fn test_status_transition_serialization() {
         let transition = StatusTransition {
@@ -703,10 +598,10 @@ mod tests {
             success: true,
             error: None,
         };
-        
+
         let json = serde_json::to_string(&transition).unwrap();
         let deserialized: StatusTransition = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(transition.plugin_id, deserialized.plugin_id);
         assert_eq!(transition.success, deserialized.success);
     }

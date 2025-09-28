@@ -353,7 +353,7 @@ impl Default for HealthCheckConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ai::{MockAiClient, AiConfig};
+    use crate::{ai::MockAiClient, config::AiConfig};
     use std::sync::Arc;
     
     #[tokio::test]
