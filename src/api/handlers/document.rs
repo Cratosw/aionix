@@ -584,15 +584,7 @@ fn extract_text_content(file_data: &[u8], doc_type: &document::DocumentType) -> 
     }
 }
 
-/// 配置文档路由
-pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/documents")
-            .route("", web::post().to(create_document))
-            .route("/upload", web::post().to(upload_document))
-            // 其他路由将在后续添加
-    );
-}
+
 
 /// 获取文档列表
 #[utoipa::path(
@@ -1082,20 +1074,7 @@ pub async fn reprocess_document(
     Ok(ApiResponse::ok(response).into_http_response()?)
 }
 
-/// 更新配置路由
-pub fn configure_routes(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::scope("/documents")
-            .route("", web::post().to(create_document))
-            .route("", web::get().to(list_documents))
-            .route("/upload", web::post().to(upload_document))
-            .route("/{id}", web::get().to(get_document))
-            .route("/{id}", web::put().to(update_document))
-            .route("/{id}", web::delete().to(delete_document))
-            .route("/{id}/stats", web::get().to(get_document_stats))
-            .route("/{id}/reprocess", web::post().to(reprocess_document))
-    );
-}
+
 
 /// 批量操作类型
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -1502,7 +1481,7 @@ pub async fn batch_import_documents(
     _user_ctx: UserContext,
     mut payload: Multipart,
 ) -> ActixResult<HttpResponse> {
-    info!("批量导入文档请求: 租户={}", tenant_ctx.tenant.id);
+    info!("批量导入文档请求: 租户={}", tenant_ctx.tenant_id);
     
     let import_id = Uuid::new_v4();
     let now = Utc::now();
@@ -1626,7 +1605,7 @@ pub async fn batch_import_documents(
         started_at: now,
     };
     
-    Ok(ApiResponse::accepted(response).into())
+    Ok(ApiResponse::accepted(response).into_http_response()?)
 }
 
 /// 批量导出文档
@@ -1655,7 +1634,7 @@ pub async fn batch_export_documents(
     req: web::Json<BatchExportRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("批量导出文档请求: 租户={}, 知识库={:?}", 
-          tenant_ctx.tenant.id, req.knowledge_base_id);
+          tenant_ctx.tenant_id, req.knowledge_base_id);
     
     let export_id = Uuid::new_v4();
     let now = Utc::now();
@@ -1717,7 +1696,7 @@ pub async fn batch_export_documents(
         completed_at: None,
     };
     
-    Ok(ApiResponse::accepted(response).into())
+    Ok(ApiResponse::accepted(response).into_http_response()?)
 }
 
 /// 获取批量操作状态
@@ -1763,10 +1742,10 @@ pub async fn get_batch_operation_status(
         "message": "批量操作已完成"
     });
     
-    Ok(ApiResponse::ok(status).into())
+    Ok(ApiResponse::ok(status).into_http_response()?)
 }
 
-/// 更新配置路由以包含批量操作
+/// 配置文档路由
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/documents")

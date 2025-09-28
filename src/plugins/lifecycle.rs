@@ -265,7 +265,36 @@ impl PluginLifecycleManager {
         // 先停止插件
         if let Ok(status) = self.get_plugin_status(plugin_id).await {
             if status == PluginStatus::Running {
-                self.stop_plugin(plugin_id).await?;
+                // 直接执行停止逻辑，避免递归调用
+                self.transition_status(plugin_id, PluginStatus::Stopping, "开始停止").await?;
+                
+                let result = {
+                    let mut plugins = self.plugins.write().await;
+                    let instance = plugins.get_mut(plugin_id)
+                        .ok_or_else(|| AiStudioError::not_found("插件不存在"))?;
+
+                    // 执行停止
+                    tokio::time::timeout(
+                        tokio::time::Duration::from_secs(self.config.shutdown_timeout_seconds),
+                        instance.plugin.stop()
+                    ).await
+                };
+
+                match result {
+                    Ok(Ok(_)) => {
+                        self.transition_status(plugin_id, PluginStatus::Stopped, "停止成功").await?;
+                        self.emit_event(plugin_id, PluginEventType::Stopped, serde_json::Value::Null).await;
+                    }
+                    Ok(Err(e)) => {
+                        self.handle_plugin_error(plugin_id, PluginErrorType::ExecutionError, &e.to_string()).await;
+                        return Err(e);
+                    }
+                    Err(_) => {
+                        let error = AiStudioError::timeout("插件停止超时");
+                        self.handle_plugin_error(plugin_id, PluginErrorType::ExecutionError, &error.to_string()).await;
+                        return Err(error);
+                    }
+                }
             }
         }
 

@@ -10,10 +10,12 @@ use utoipa::ToSchema;
 
 use crate::ai::{
     workflow_engine::{WorkflowEngine, WorkflowDefinition, WorkflowStatus, ValidationResult},
-    // workflow_executor module is not available
+    workflow_executor::{WorkflowExecutor, ExecutionRequest},
+    agent_runtime::ExecutionContext,
 };
+use crate::db::entities::workflow_execution::ExecutionOptions;
 use crate::errors::AiStudioError;
-use crate::middleware::auth::TenantInfo;
+use crate::api::middleware::auth::TenantInfo;
 
 /// 工作流创建请求
 #[derive(Debug, Deserialize, ToSchema)]

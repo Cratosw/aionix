@@ -10,7 +10,8 @@ use crate::ai::{
     rig_client::RigAiClient,
     tool_manager::{ToolManager, ToolManagerFactory},
     tool_loader::{ToolLoader, ToolLoaderFactory},
-    tools::{ToolFactory, Tool},
+    tools::ToolFactory,
+    agent_runtime::Tool,
 };
 use crate::errors::AiStudioError;
 use crate::config::AppConfig;

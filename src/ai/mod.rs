@@ -14,6 +14,7 @@ pub mod tools;
 pub mod tool_manager;
 pub mod tool_loader;
 pub mod workflow_engine;
+pub mod workflow_executor;
 
 pub use client::*;
 pub use models::*;

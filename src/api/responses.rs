@@ -1,6 +1,3 @@
-// API 响应结构
-// 定义统一的 API 响应格式和错误处理
-
 use actix_web::{HttpResponse, Result as ActixResult};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -56,6 +53,18 @@ impl<T> ApiResponse<T> {
         Self {
             success: true,
             data: None,
+            error: None,
+            request_id: generate_request_id(),
+            timestamp: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        }
+    }
+    
+    /// 创建接受响应
+    pub fn accepted(data: T) -> Self {
+        Self {
+            success: true,
+            data: Some(data),
             error: None,
             request_id: generate_request_id(),
             timestamp: Utc::now(),
@@ -147,6 +156,25 @@ impl ApiError {
             field: None,
             help_url: None,
         }
+    }
+}
+
+impl actix_web::ResponseError for ApiError {
+    fn error_response(&self) -> HttpResponse {
+        let status_code = match self.code.as_str() {
+            "BAD_REQUEST" => actix_web::http::StatusCode::BAD_REQUEST,
+            "UNAUTHORIZED" => actix_web::http::StatusCode::UNAUTHORIZED,
+            "FORBIDDEN" => actix_web::http::StatusCode::FORBIDDEN,
+            "NOT_FOUND" => actix_web::http::StatusCode::NOT_FOUND,
+            "CONFLICT" => actix_web::http::StatusCode::CONFLICT,
+            "PAYLOAD_TOO_LARGE" => actix_web::http::StatusCode::PAYLOAD_TOO_LARGE,
+            "UNPROCESSABLE_ENTITY" => actix_web::http::StatusCode::UNPROCESSABLE_ENTITY,
+            "TOO_MANY_REQUESTS" => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+            "INTERNAL_ERROR" => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        HttpResponse::build(status_code).json(self)
     }
 }
 
@@ -460,7 +488,7 @@ impl HttpResponseBuilder {
 
     /// 创建 500 Internal Server Error 响应
     pub fn internal_error<T: serde::Serialize>() -> ActixResult<HttpResponse> {
-        Ok(HttpResponse::InternalServerError().json(ErrorResponse::internal_error::<T>()))
+        Ok(HttpResponse::InternalServerError().json(ErrorResponse::internal_server_error::<T>()))
     }
 }
 
@@ -507,50 +535,10 @@ impl std::fmt::Display for ApiError {
     }
 }
 
-/// 为 ApiError 实现 ResponseError trait
-impl actix_web::ResponseError for ApiError {
-    fn error_response(&self) -> HttpResponse {
-        let status_code = match self.code.as_str() {
-            "VALIDATION_ERROR" => actix_web::http::StatusCode::BAD_REQUEST,
-            "UNAUTHORIZED" => actix_web::http::StatusCode::UNAUTHORIZED,
-            "FORBIDDEN" => actix_web::http::StatusCode::FORBIDDEN,
-            "NOT_FOUND" => actix_web::http::StatusCode::NOT_FOUND,
-            "CONFLICT" => actix_web::http::StatusCode::CONFLICT,
-            "QUOTA_EXCEEDED" | "RATE_LIMITED" => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
-            "INTERNAL_ERROR" => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        HttpResponse::build(status_code).json(self)
-    }
-}
-
 /// 为 ApiResponse 实现 Display trait
 impl<T: std::fmt::Debug> std::fmt::Display for ApiResponse<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ApiResponse {{ success: {}, data: {:?}, error: {:?} }}", 
                self.success, self.data, self.error)
-    }
-}
-
-/// 为 ApiResponse 实现 ResponseError trait
-impl<T: std::fmt::Debug> actix_web::ResponseError for ApiResponse<T> {
-    fn error_response(&self) -> HttpResponse {
-        let status_code = if self.success {
-            actix_web::http::StatusCode::OK
-        } else {
-            match self.error.as_ref().map(|e| e.code.as_str()) {
-                Some("VALIDATION_ERROR") => actix_web::http::StatusCode::BAD_REQUEST,
-                Some("UNAUTHORIZED") => actix_web::http::StatusCode::UNAUTHORIZED,
-                Some("FORBIDDEN") => actix_web::http::StatusCode::FORBIDDEN,
-                Some("NOT_FOUND") => actix_web::http::StatusCode::NOT_FOUND,
-                Some("CONFLICT") => actix_web::http::StatusCode::CONFLICT,
-                Some("QUOTA_EXCEEDED") | Some("RATE_LIMITED") => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
-                Some("INTERNAL_ERROR") => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-                _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            }
-        };
-
-        HttpResponse::build(status_code).json(self)
     }
 }

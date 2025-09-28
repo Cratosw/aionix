@@ -14,7 +14,7 @@ use crate::plugins::{
     plugin_registry::{PluginSearchQuery, PluginSearchResult, PluginStatistics},
 };
 use crate::errors::AiStudioError;
-use crate::middleware::auth::TenantInfo;
+use crate::api::middleware::auth::TenantInfo;
 
 /// 插件调用请求
 #[derive(Debug, Deserialize, ToSchema)]
@@ -412,7 +412,7 @@ pub async fn update_plugin_config(
             // 如果需要重启插件
             if request.restart_plugin.unwrap_or(false) {
                 if let Err(e) = plugin_manager.restart_plugin(&plugin_id).await {
-                    warn!("插件重启失败: {} - {}", plugin_id, e);
+                    tracing::warn!("插件重启失败: {} - {}", plugin_id, e);
                 }
             }
             

@@ -1,5 +1,5 @@
-// API 处理器
-// 定义基础的 API 处理器函数
+// API 处理器模块
+// 包含所有 API 端点的处理逻辑
 
 pub mod agent;
 pub mod auth;
@@ -16,6 +16,7 @@ pub mod tool;
 pub mod version;
 pub mod workflow;
 
+// 重新导出常用的处理器
 pub use agent::*;
 pub use auth::*;
 pub use document::*;

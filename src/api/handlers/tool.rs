@@ -14,7 +14,7 @@ use crate::ai::{
     agent_runtime::ExecutionContext,
 };
 use crate::errors::AiStudioError;
-use crate::middleware::auth::TenantInfo;
+use crate::api::middleware::auth::TenantInfo;
 
 /// 工具调用请求
 #[derive(Debug, Deserialize, ToSchema)]
