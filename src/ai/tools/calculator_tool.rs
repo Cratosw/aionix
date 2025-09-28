@@ -132,29 +132,29 @@ impl Tool for CalculatorTool {
         
         // 验证第一个操作数
         if !parameters.contains_key("a") {
-            return Err(AiStudioError::validation("缺少必需参数: a"));
+            return Err(AiStudioError::validation("a", "缺少必需参数"));
         }
         
         if !parameters.get("a").unwrap().is_number() {
-            return Err(AiStudioError::validation("参数 a 必须是数字"));
+            return Err(AiStudioError::validation("a", "参数必须是数字"));
         }
         
         // 验证第二个操作数（如果需要）
         let requires_b = matches!(operation, "add" | "subtract" | "multiply" | "divide" | "power");
         if requires_b {
             if !parameters.contains_key("b") {
-                return Err(AiStudioError::validation(&format!("操作 {} 需要参数 b", operation)));
+                return Err(AiStudioError::validation("b", &format!("操作 {} 需要参数 b", operation)));
             }
             
             if !parameters.get("b").unwrap().is_number() {
-                return Err(AiStudioError::validation("参数 b 必须是数字"));
+                return Err(AiStudioError::validation("b", "参数必须是数字"));
             }
             
             // 检查除零
             if operation == "divide" {
                 let b = parameters.get("b").unwrap().as_f64().unwrap();
                 if b == 0.0 {
-                    return Err(AiStudioError::validation("除数不能为零"));
+                    return Err(AiStudioError::validation("b", "除数不能为零"));
                 }
             }
         }
@@ -163,10 +163,10 @@ impl Tool for CalculatorTool {
         if let Some(precision) = parameters.get("precision") {
             if let Some(p) = precision.as_u64() {
                 if p > 10 {
-                    return Err(AiStudioError::validation("精度不能超过 10"));
+                    return Err(AiStudioError::validation("precision", "精度不能超过 10"));
                 }
             } else {
-                return Err(AiStudioError::validation("precision 必须是非负整数"));
+                return Err(AiStudioError::validation("precision", "必须是非负整数"));
             }
         }
         
@@ -202,7 +202,7 @@ impl CalculatorTool {
         let b = self.get_number(parameters, "b")?;
         
         if b == 0.0 {
-            return Err(AiStudioError::validation("除数不能为零"));
+            return Err(AiStudioError::validation("b", "除数不能为零"));
         }
         
         Ok(a / b)
@@ -220,7 +220,7 @@ impl CalculatorTool {
         let a = self.get_number(parameters, "a")?;
         
         if a < 0.0 {
-            return Err(AiStudioError::validation("不能计算负数的平方根"));
+            return Err(AiStudioError::validation("a", "不能计算负数的平方根"));
         }
         
         Ok(a.sqrt())
@@ -251,7 +251,7 @@ impl CalculatorTool {
     ) -> Result<f64, AiStudioError> {
         parameters.get(key)
             .and_then(|v| v.as_f64())
-            .ok_or_else(|| AiStudioError::validation(&format!("无效的数字参数: {}", key)))
+            .ok_or_else(|| AiStudioError::validation(key, "无效的数字参数"))
     }
 }
 

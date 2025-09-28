@@ -186,19 +186,19 @@ impl Tool for HttpTool {
         
         // 解析 URL
         let url = Url::parse(url_str).map_err(|e| {
-            AiStudioError::validation(&format!("无效的 URL: {}", e))
+            AiStudioError::validation("url", &format!("无效的 URL: {}", e))
         })?;
         
         // 检查协议
         if !matches!(url.scheme(), "http" | "https") {
-            return Err(AiStudioError::validation("只支持 HTTP 和 HTTPS 协议"));
+            return Err(AiStudioError::validation("url", "只支持 HTTP 和 HTTPS 协议"));
         }
         
         // 检查域名白名单
         if !self.config.allowed_domains.is_empty() {
             if let Some(host) = url.host_str() {
                 if !self.config.allowed_domains.iter().any(|domain| host.contains(domain)) {
-                    return Err(AiStudioError::validation(&format!("域名不在允许列表中: {}", host)));
+                    return Err(AiStudioError::validation("url", &format!("域名不在允许列表中: {}", host)));
                 }
             }
         }
@@ -206,7 +206,7 @@ impl Tool for HttpTool {
         // 检查域名黑名单
         if let Some(host) = url.host_str() {
             if self.config.blocked_domains.iter().any(|domain| host.contains(domain)) {
-                return Err(AiStudioError::validation(&format!("域名在禁止列表中: {}", host)));
+                return Err(AiStudioError::validation("url", &format!("域名在禁止列表中: {}", host)));
             }
         }
         
@@ -214,17 +214,17 @@ impl Tool for HttpTool {
         if let Some(method) = parameters.get("method") {
             if let Some(method_str) = method.as_str() {
                 if !self.config.allowed_methods.contains(&method_str.to_uppercase()) {
-                    return Err(AiStudioError::validation(&format!("不允许的 HTTP 方法: {}", method_str)));
+                    return Err(AiStudioError::validation("method", &format!("不允许的 HTTP 方法: {}", method_str)));
                 }
             } else {
-                return Err(AiStudioError::validation("method 必须是字符串"));
+                return Err(AiStudioError::validation("method", "必须是字符串"));
             }
         }
         
         // 验证请求头
         if let Some(headers) = parameters.get("headers") {
             if !headers.is_object() {
-                return Err(AiStudioError::validation("headers 必须是对象"));
+                return Err(AiStudioError::validation("headers", "必须是对象"));
             }
             
             // 检查危险的请求头
@@ -236,7 +236,7 @@ impl Tool for HttpTool {
                     }
                     
                     if !value.is_string() {
-                        return Err(AiStudioError::validation(&format!("请求头 {} 的值必须是字符串", key)));
+                        return Err(AiStudioError::validation("headers", &format!("请求头 {} 的值必须是字符串", key)));
                     }
                 }
             }
@@ -246,10 +246,10 @@ impl Tool for HttpTool {
         if let Some(timeout) = parameters.get("timeout") {
             if let Some(timeout_num) = timeout.as_u64() {
                 if timeout_num == 0 || timeout_num > 300 {
-                    return Err(AiStudioError::validation("timeout 必须在 1-300 秒之间"));
+                    return Err(AiStudioError::validation("timeout", "必须在 1-300 秒之间"));
                 }
             } else {
-                return Err(AiStudioError::validation("timeout 必须是正整数"));
+                return Err(AiStudioError::validation("timeout", "必须是正整数"));
             }
         }
         

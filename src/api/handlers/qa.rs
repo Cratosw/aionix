@@ -14,7 +14,8 @@ use std::time::Duration;
 
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
 use crate::api::responses::{ApiResponse, ApiError};
-use crate::api::extractors::{TenantContext, UserContext};
+use crate::api::extractors::{TenantExtractor, UserContext};
+use crate::db::migrations::tenant_filter::TenantContext;
 use crate::ai::rag_engine::{RagEngine, RagQueryRequest, RagQueryResponse, RetrievalParams, GenerationParams};
 
 /// 问答请求

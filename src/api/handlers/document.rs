@@ -387,7 +387,7 @@ pub async fn upload_document(
                     
                     // 限制文件大小（例如 10MB）
                     if data.len() > 10 * 1024 * 1024 {
-                        return Ok(HttpResponseBuilder::payload_too_large::<()>("文件大小超过限制（10MB）".to_string()).unwrap());
+                        return Ok(HttpResponseBuilder::payload_too_large::<()>("文件大小超过限制（10MB）").unwrap());
                     }
                 }
                 file_data = Some(data);
@@ -433,7 +433,7 @@ pub async fn upload_document(
     
     if kb.is_none() {
         warn!("知识库不存在或无权访问: {}", knowledge_base_id);
-        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在".to_string()).unwrap());
+        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在").unwrap());
     }
     
     // 确定文档类型
@@ -1517,7 +1517,7 @@ pub async fn batch_import_documents(
                     
                     // 限制单个文件大小（例如 50MB）
                     if file_data.len() > 50 * 1024 * 1024 {
-                        return Ok(HttpResponseBuilder::payload_too_large::<()>("单个文件大小超过限制（50MB）".to_string()).unwrap());
+                        return Ok(HttpResponseBuilder::payload_too_large::<()>("单个文件大小超过限制（50MB）").unwrap());
                     }
                 }
                 
@@ -1551,7 +1551,7 @@ pub async fn batch_import_documents(
     
     if kb.is_none() {
         warn!("知识库不存在或无权访问: {}", knowledge_base_id);
-        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在".to_string()).unwrap());
+        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在").unwrap());
     }
     
     // TODO: 这里应该启动异步批量导入任务

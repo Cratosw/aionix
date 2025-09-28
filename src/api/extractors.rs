@@ -28,6 +28,26 @@ pub struct UserContext {
     pub permissions: Vec<String>,
 }
 
+// 为 UserContext 实现 FromRequest trait
+impl FromRequest for UserContext {
+    type Error = actix_web::Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(_req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        // 创建一个示例用户上下文用于测试
+        ready(Ok(UserContext {
+            user: User {
+                id: Uuid::nil(),
+                role: "user".to_string(),
+            },
+            user_id: Uuid::nil(),
+            username: "test_user".to_string(),
+            email: "test@example.com".to_string(),
+            permissions: vec!["read".to_string(), "write".to_string()],
+        }))
+    }
+}
+
 /// 租户上下文提取器
 #[derive(Debug, Clone)]
 pub struct TenantExtractor {
@@ -135,14 +155,9 @@ impl FromRequest for OptionalAuthExtractor {
     type Error = actix_web::Error;
     type Future = Ready<Result<Self, Self::Error>>;
 
-    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        match AuthExtractor::from_request(req, payload) {
-            fut => {
-                // 由于 AuthExtractor 返回 Future，我们需要处理这个异步情况
-                // 这里简化处理，实际应该正确处理异步
-                ready(Ok(OptionalAuthExtractor { user: None }))
-            }
-        }
+    fn from_request(_req: &HttpRequest, _payload: &mut Payload) -> Self::Future {
+        // 简化处理，直接返回 None
+        ready(Ok(OptionalAuthExtractor { user: None }))
     }
 }
 

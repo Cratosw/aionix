@@ -160,22 +160,22 @@ impl Tool for FileTool {
         // 验证路径参数
         let path = parameters.get("path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| AiStudioError::validation("缺少必需参数: path"))?;
+            .ok_or_else(|| AiStudioError::validation("path", "缺少必需参数"))?;
         
         if path.is_empty() {
-            return Err(AiStudioError::validation("路径不能为空"));
+            return Err(AiStudioError::validation("path", "路径不能为空"));
         }
         
         // 安全检查：防止路径遍历攻击
         if path.contains("..") || path.contains("~") {
-            return Err(AiStudioError::validation("路径包含不安全字符"));
+            return Err(AiStudioError::validation("path", "路径包含不安全字符"));
         }
         
         // 检查基础目录限制
         if let Some(ref base_dir) = self.config.base_directory {
             let full_path = Path::new(base_dir).join(path);
             if !full_path.starts_with(base_dir) {
-                return Err(AiStudioError::validation("路径超出允许的基础目录"));
+                return Err(AiStudioError::validation("path", "路径超出允许的基础目录"));
             }
         }
         
@@ -184,7 +184,7 @@ impl Tool for FileTool {
             if let Some(extension) = Path::new(path).extension() {
                 let ext_str = extension.to_string_lossy().to_lowercase();
                 if !self.config.allowed_extensions.contains(&ext_str) {
-                    return Err(AiStudioError::validation(&format!("不允许的文件扩展名: {}", ext_str)));
+                    return Err(AiStudioError::validation("extension", &format!("不允许的文件扩展名: {}", ext_str)));
                 }
             }
         }
@@ -192,11 +192,11 @@ impl Tool for FileTool {
         // 验证内容参数（写入和追加操作需要）
         if matches!(operation, "write" | "append") {
             if !parameters.contains_key("content") {
-                return Err(AiStudioError::validation(&format!("操作 {} 需要参数 content", operation)));
+                return Err(AiStudioError::validation("content", &format!("操作 {} 需要参数 content", operation)));
             }
             
             if !parameters.get("content").unwrap().is_string() {
-                return Err(AiStudioError::validation("content 必须是字符串"));
+                return Err(AiStudioError::validation("content", "必须是字符串"));
             }
         }
         
@@ -361,7 +361,7 @@ impl FileTool {
         }
         
         if !full_path.is_dir() {
-            return Err(AiStudioError::validation("path".to_string(), &format!("路径不是目录: {}", path)));
+            return Err(AiStudioError::validation("path", &format!("路径不是目录: {}", path)));
         }
         
         let mut entries = Vec::new();
@@ -468,7 +468,7 @@ impl FileTool {
         // 再次检查基础目录限制
         if let Some(ref base_dir) = self.config.base_directory {
             if !canonical_path.starts_with(base_dir) {
-                return Err(AiStudioError::validation("路径超出允许的基础目录"));
+                return Err(AiStudioError::validation("path", "路径超出允许的基础目录"));
             }
         }
         

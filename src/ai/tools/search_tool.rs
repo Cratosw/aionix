@@ -121,22 +121,22 @@ impl Tool for SearchTool {
     ) -> Result<(), AiStudioError> {
         // 验证必需参数
         if !parameters.contains_key("query") {
-            return Err(AiStudioError::validation("缺少必需参数: query"));
+            return Err(AiStudioError::validation("query", "缺少必需参数"));
         }
         
         // 验证查询字符串
         if let Some(query) = parameters.get("query") {
             if !query.is_string() {
-                return Err(AiStudioError::validation("query 必须是字符串"));
+                return Err(AiStudioError::validation("query", "必须是字符串"));
             }
             
             let query_str = query.as_str().unwrap();
             if query_str.is_empty() {
-                return Err(AiStudioError::validation("query 不能为空"));
+                return Err(AiStudioError::validation("query", "不能为空"));
             }
             
             if query_str.len() > 1000 {
-                return Err(AiStudioError::validation("query 长度不能超过 1000 字符"));
+                return Err(AiStudioError::validation("query", "长度不能超过 1000 字符"));
             }
         }
         
@@ -144,10 +144,10 @@ impl Tool for SearchTool {
         if let Some(limit) = parameters.get("limit") {
             if let Some(limit_num) = limit.as_u64() {
                 if limit_num == 0 || limit_num > 50 {
-                    return Err(AiStudioError::validation("limit 必须在 1-50 之间"));
+                    return Err(AiStudioError::validation("limit", "必须在 1-50 之间"));
                 }
             } else {
-                return Err(AiStudioError::validation("limit 必须是正整数"));
+                return Err(AiStudioError::validation("limit", "必须是正整数"));
             }
         }
         

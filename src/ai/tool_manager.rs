@@ -489,19 +489,19 @@ impl ToolManager {
     /// 验证工具元数据
     fn validate_tool_metadata(&self, metadata: &ToolMetadata) -> Result<(), AiStudioError> {
         if metadata.name.is_empty() {
-            return Err(AiStudioError::validation("工具名称不能为空"));
+            return Err(AiStudioError::validation("name", "工具名称不能为空"));
         }
         
         if metadata.name.len() > 100 {
-            return Err(AiStudioError::validation("工具名称长度不能超过 100 字符"));
+            return Err(AiStudioError::validation("name", "工具名称长度不能超过 100 字符"));
         }
         
         if !metadata.name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-            return Err(AiStudioError::validation("工具名称只能包含字母、数字、下划线和连字符"));
+            return Err(AiStudioError::validation("name", "工具名称只能包含字母、数字、下划线和连字符"));
         }
         
         if metadata.description.len() > 1000 {
-            return Err(AiStudioError::validation("工具描述长度不能超过 1000 字符"));
+            return Err(AiStudioError::validation("description", "工具描述长度不能超过 1000 字符"));
         }
         
         Ok(())

@@ -217,6 +217,22 @@ impl AiStudioError {
         }
     }
 
+    /// 创建单参数验证错误（向后兼容）
+    pub fn validation_simple(message: impl Into<String>) -> Self {
+        Self::Validation {
+            field: "general".to_string(),
+            message: message.into(),
+        }
+    }
+
+    /// 创建取消错误
+    pub fn cancelled(message: impl Into<String>) -> Self {
+        Self::Validation {
+            field: "operation".to_string(),
+            message: message.into(),
+        }
+    }
+
     /// 创建资源未找到错误
     pub fn not_found(resource: impl Into<String>) -> Self {
         Self::NotFound {
@@ -331,13 +347,7 @@ impl AiStudioError {
         Self::RateLimit { retry_after: Some(60) }
     }
 
-    /// 创建简单验证错误
-    pub fn validation_simple(message: impl Into<String>) -> Self {
-        Self::Validation {
-            field: "general".to_string(),
-            message: message.into(),
-        }
-    }
+
 
     /// 创建 AI 错误的便捷方法
     pub fn ai(message: impl Into<String>) -> Self {

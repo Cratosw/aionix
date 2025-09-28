@@ -377,13 +377,17 @@ pub struct ToolMetadata {
 }
 
 /// 工具接口
-pub trait Tool {
+pub trait Tool: Send + Sync {
     /// 执行工具
-    async fn execute(
-        &self,
+    fn execute<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         parameters: HashMap<String, serde_json::Value>,
-        context: &ExecutionContext,
-    ) -> Result<ToolResult, AiStudioError>;
+        context: &'life1 ExecutionContext,
+    ) -> core::pin::Pin<Box<dyn core::future::Future<Output = Result<ToolResult, AiStudioError>> + core::marker::Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        'life1: 'async_trait,
+        Self: 'async_trait;
     
     /// 获取工具元数据
     fn metadata(&self) -> ToolMetadata;
