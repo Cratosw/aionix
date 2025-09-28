@@ -2,9 +2,10 @@
 
 use actix_web::{web, HttpResponse, Result as ActixResult};
 use actix_multipart::Multipart;
+use futures::stream::StreamExt;
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, QueryOrder, PaginatorTrait, ActiveModelTrait};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{ToSchema, IntoParams};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
@@ -13,6 +14,7 @@ use std::io::Write;
 use crate::api::models::{PaginationQuery, PaginatedResponse, PaginationInfo};
 use crate::api::responses::{ApiResponse, ApiError, ApiResponseExt};
 use crate::api::middleware::tenant::TenantInfo;
+use crate::api::extractors::{TenantContext, UserContext};
 use crate::api::HttpResponseBuilder;
 use crate::db::entities::{document, knowledge_base, prelude::*};
 use crate::errors::AiStudioError;
@@ -100,7 +102,7 @@ pub struct DocumentResponse {
 }
 
 /// 文档搜索查询
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, ToSchema, IntoParams)]
 pub struct DocumentSearchQuery {
     /// 知识库 ID（可选，如果不指定则搜索所有知识库）
     pub knowledge_base_id: Option<Uuid>,
@@ -262,7 +264,7 @@ pub async fn create_document(
     
     if kb.is_none() {
         warn!("知识库不存在或无权访问: {}", req.knowledge_base_id);
-        return Ok(ApiError::not_found("知识库不存在").into());
+        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在").unwrap());
     }
     
     // 准备文档数据
@@ -312,7 +314,7 @@ pub async fn create_document(
     info!("文档创建成功: id={}, 标题={}", doc.id, doc.title);
     
     let response = DocumentResponse::from(doc);
-    Ok(ApiResponse::created(response).into_http_response()?)
+    Ok(ApiResponse::created(response).into_http_response().unwrap())
 }
 
 /// 上传文档文件
@@ -347,19 +349,13 @@ pub async fn upload_document(
     let mut content_type: Option<String> = None;
     
     // 处理 multipart 数据
-    while let Some(mut field) = payload.try_next().await.map_err(|e| {
-        error!("解析 multipart 数据失败: {}", e);
-        ApiError::bad_request("无效的文件上传数据")
-    })? {
-        let field_name = field.name().unwrap_or("").to_string();
+    while let Some(Ok(mut field)) = payload.next().await {
+        let field_name = field.name().to_string();
         
         match field_name.as_str() {
             "knowledge_base_id" => {
                 let mut data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取知识库 ID 失败: {}", e);
-                    ApiError::bad_request("无效的知识库 ID")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     data.extend_from_slice(&chunk);
                 }
                 let kb_id_str = String::from_utf8(data).map_err(|e| {
@@ -373,10 +369,7 @@ pub async fn upload_document(
             }
             "title" => {
                 let mut data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取标题失败: {}", e);
-                    ApiError::bad_request("无效的标题")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     data.extend_from_slice(&chunk);
                 }
                 title = Some(String::from_utf8(data).map_err(|e| {
@@ -389,26 +382,19 @@ pub async fn upload_document(
                 content_type = field.content_type().map(|ct| ct.to_string());
                 
                 let mut data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取文件数据失败: {}", e);
-                    ApiError::bad_request("文件读取失败")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     data.extend_from_slice(&chunk);
                     
                     // 限制文件大小（例如 10MB）
                     if data.len() > 10 * 1024 * 1024 {
-                        return Ok(ApiError::payload_too_large("文件大小超过限制（10MB）").into());
+                        return Ok(HttpResponseBuilder::payload_too_large::<()>("文件大小超过限制（10MB）".to_string()).unwrap());
                     }
                 }
                 file_data = Some(data);
             }
             _ => {
                 // 忽略未知字段
-                while let Some(_chunk) = field.try_next().await.map_err(|_| {
-                    ApiError::bad_request("无效的字段数据")
-                })? {
-                    // 消费数据
-                }
+                while let Some(_) = field.next().await {}
             }
         }
     }
@@ -447,7 +433,7 @@ pub async fn upload_document(
     
     if kb.is_none() {
         warn!("知识库不存在或无权访问: {}", knowledge_base_id);
-        return Ok(ApiError::not_found("知识库不存在").into());
+        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在".to_string()).unwrap());
     }
     
     // 确定文档类型
@@ -509,7 +495,7 @@ pub async fn upload_document(
         message: "文档上传成功，正在处理中".to_string(),
     };
     
-    Ok(ApiResponse::created(response).into_http_response()?)
+    Ok(ApiResponse::created(response).into_http_response().unwrap())
 }
 
 /// 辅助函数：确定文档类型
@@ -577,7 +563,7 @@ fn extract_text_content(file_data: &[u8], doc_type: &document::DocumentType) -> 
         _ => {
             // 对于其他类型，暂时返回原始内容
             // 实际应该使用专门的文档处理库
-            String::from_utf8_lossy(file_data).to_string().into()
+            Ok(String::from_utf8_lossy(file_data).to_string())
         }
     }
 }
@@ -702,7 +688,7 @@ pub async fn list_documents(
     );
     
     let response = PaginatedResponse::new(responses, pagination);
-    Ok(ApiResponse::ok(response).into_http_response()?)
+    Ok(ApiResponse::ok(response).into_http_response().unwrap())
 }
 
 /// 获取文档详情
@@ -747,12 +733,12 @@ pub async fn get_document(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
+            return Ok(HttpResponseBuilder::not_found::<()>("文档").unwrap());
         }
     };
     
     let response = DocumentResponse::from(doc);
-    Ok(ApiResponse::ok(response).into_http_response()?)
+    Ok(ApiResponse::ok(response).into_http_response().unwrap())
 }
 
 /// 更新文档
@@ -801,7 +787,7 @@ pub async fn update_document(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
+            return Ok(HttpResponseBuilder::not_found::<()>("文档").unwrap());
         }
     };
     
@@ -864,7 +850,7 @@ pub async fn update_document(
     active_model.updated_at = sea_orm::Set(now);
     
     // 执行更新
-    let updated_doc = Document::update(active_model).exec(db.as_ref()).await.map_err(|e| {
+    let updated_doc = active_model.update(db.as_ref()).await.map_err(|e| {
         error!("更新文档失败: {}", e);
         ApiError::internal_server_error("更新文档失败")
     })?;
@@ -872,7 +858,7 @@ pub async fn update_document(
     info!("文档更新成功: id={}, 标题={}", updated_doc.id, updated_doc.title);
     
     let response = DocumentResponse::from(updated_doc);
-    Ok(ApiResponse::ok(response).into_http_response()?)
+    Ok(ApiResponse::ok(response).into_http_response().unwrap())
 }
 
 /// 删除文档
@@ -916,7 +902,7 @@ pub async fn delete_document(
     
     if doc.is_none() {
         warn!("文档不存在或无权访问: id={}", doc_id);
-        return Ok(ApiError::not_found("文档不存在").into());
+        return Ok(HttpResponseBuilder::not_found::<()>("文档不存在").unwrap());
     }
     
     // 执行删除
@@ -929,7 +915,7 @@ pub async fn delete_document(
         })?;
     
     info!("文档删除成功: id={}", doc_id);
-    Ok(HttpResponseBuilder::no_content()?)
+    Ok(HttpResponseBuilder::no_content().unwrap())
 }
 
 /// 获取文档统计信息
@@ -974,12 +960,12 @@ pub async fn get_document_stats(
         Some(doc) => doc,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
+            return Ok(HttpResponseBuilder::not_found::<()>("文档").unwrap());
         }
     };
     
     let stats = DocumentStats::from(doc);
-    Ok(ApiResponse::ok(stats).into_http_response()?)
+    Ok(ApiResponse::ok(stats).into_http_response().unwrap())
 }
 
 /// 重新处理文档
@@ -1027,13 +1013,13 @@ pub async fn reprocess_document(
         Some(d) => d,
         None => {
             warn!("文档不存在或无权访问: id={}", doc_id);
-            return Ok(HttpResponseBuilder::not_found::<()>("文档")?);
+            return Ok(HttpResponseBuilder::not_found::<()>("文档").unwrap());
         }
     };
     
     // 检查文档状态
     if doc.status == document::DocumentStatus::Processing {
-        return Ok(HttpResponseBuilder::conflict::<()>("文档正在处理中，请稍后再试".to_string())?);
+        return Ok(HttpResponseBuilder::conflict::<()>("文档正在处理中，请稍后再试".to_string()).unwrap());
     }
     
     // 更新文档状态为处理中
@@ -1046,7 +1032,7 @@ pub async fn reprocess_document(
     active_model.error_message = sea_orm::Set(None);
     active_model.updated_at = sea_orm::Set(now);
     
-    let updated_doc = document::Entity::update(active_model).exec(db.as_ref()).await.map_err(|e| {
+    let _updated_doc = active_model.update(db.as_ref()).await.map_err(|e| {
         error!("更新文档状态失败: {}", e);
         ApiError::internal_server_error("更新文档状态失败")
     })?;
@@ -1063,7 +1049,7 @@ pub async fn reprocess_document(
         "started_at": now
     });
 
-    Ok(ApiResponse::ok(response).into_http_response()?)
+    Ok(ApiResponse::ok(response).into_http_response().unwrap())
 }
 
 
@@ -1245,11 +1231,11 @@ pub async fn batch_document_operation(
           tenant_info.id, req.operation, req.document_ids.len());
     
     if req.document_ids.is_empty() {
-        return Ok(HttpResponseBuilder::bad_request::<()>("文档 ID 列表不能为空".to_string())?);
+        return Ok(HttpResponseBuilder::bad_request::<()>("文档 ID 列表不能为空".to_string()).unwrap());
     }
     
     if req.document_ids.len() > 1000 {
-        return Ok(HttpResponseBuilder::bad_request::<()>("批量操作文档数量不能超过 1000".to_string())?);
+        return Ok(HttpResponseBuilder::bad_request::<()>("批量操作文档数量不能超过 1000".to_string()).unwrap());
     }
     
     let batch_id = Uuid::new_v4();
@@ -1258,7 +1244,7 @@ pub async fn batch_document_operation(
     // 验证所有文档都属于当前租户
     let valid_docs = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .filter(document::Column::Id.is_in(req.document_ids.clone()))
         .all(db.as_ref())
         .await
@@ -1322,9 +1308,9 @@ pub async fn batch_document_operation(
             if let Some(params) = &req.parameters {
                 if let Ok(update_data) = serde_json::from_value::<UpdateDocumentRequest>(params.clone()) {
                     for doc in valid_docs {
-                        match update_document_internal(db.as_ref(), doc, &update_data).await {
-                            Ok(_) => {
-                                response.success_ids.push(doc.id);
+                        match update_document_internal(db.as_ref(), doc.clone(), &update_data).await {
+                            Ok(updated_doc) => {
+                                response.success_ids.push(updated_doc.id);
                                 response.success_count += 1;
                             }
                             Err(e) => {
@@ -1339,10 +1325,10 @@ pub async fn batch_document_operation(
                         }
                     }
                 } else {
-                    return Ok(ApiError::bad_request("无效的更新参数").into());
+                    return Ok(HttpResponseBuilder::bad_request::<()>("无效的更新参数".to_string()).unwrap());
                 }
             } else {
-                return Ok(ApiError::bad_request("批量更新需要提供更新参数").into());
+                return Ok(HttpResponseBuilder::bad_request::<()>("批量更新需要提供更新参数".to_string()).unwrap());
             }
         }
         BatchDocumentOperation::Reprocess => {
@@ -1356,15 +1342,16 @@ pub async fn batch_document_operation(
                 active_model.error_message = sea_orm::Set(None);
                 active_model.updated_at = sea_orm::Set(now);
                 
-                match document::Entity::update(active_model).exec(db.as_ref()).await {
-                    Ok(_) => {
-                        response.success_ids.push(active_model.id.unwrap());
+                let active_model_id = active_model.id.clone();
+                match active_model.update(db.as_ref()).await {
+                    Ok(updated_doc) => {
+                        response.success_ids.push(updated_doc.id);
                         response.success_count += 1;
                     }
                     Err(e) => {
-                        error!("重新处理文档失败: id={:?}, error={}", active_model.id, e);
+                        error!("重新处理文档失败: id={:?}, error={}", active_model_id, e);
                         response.errors.push(BatchDocumentError {
-                            document_id: active_model.id.unwrap(),
+                            document_id: active_model_id.unwrap(),
                             error_code: "REPROCESS_FAILED".to_string(),
                             error_message: format!("重新处理失败: {}", e),
                         });
@@ -1395,7 +1382,7 @@ pub async fn batch_document_operation(
     info!("批量文档操作完成: batch_id={}, 成功={}, 失败={}", 
           batch_id, response.success_count, response.error_count);
     
-    Ok(ApiResponse::ok(response).into_http_response()?)
+    Ok(ApiResponse::ok(response).into_http_response().unwrap())
 }
 
 /// 内部更新文档函数
@@ -1443,9 +1430,9 @@ async fn update_document_internal(
     
     active_model.updated_at = sea_orm::Set(now);
     
-    document::Entity::update(active_model).exec(db).await.map_err(|e| {
+    Ok(document::Entity::update(active_model).exec(db).await.map_err(|e| {
         AiStudioError::database(format!("更新文档失败: {}", e))
-    })?.into()
+    })?)
 }
 
 /// 批量导入文档
@@ -1468,11 +1455,11 @@ async fn update_document_internal(
 )]
 pub async fn batch_import_documents(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
+    _user_ctx: web::ReqData<UserContext>,
     mut payload: Multipart,
 ) -> ActixResult<HttpResponse> {
-    info!("批量导入文档请求: 租户={}", tenant_ctx.tenant_id);
+    info!("批量导入文档请求: 租户={}", tenant_info.id);
     
     let import_id = Uuid::new_v4();
     let now = Utc::now();
@@ -1487,19 +1474,13 @@ pub async fn batch_import_documents(
     };
     
     // 处理 multipart 数据
-    while let Some(mut field) = payload.try_next().await.map_err(|e| {
-        error!("解析 multipart 数据失败: {}", e);
-        ApiError::bad_request("无效的文件上传数据")
-    })? {
-        let field_name = field.name().unwrap_or("").to_string();
+    while let Some(Ok(mut field)) = payload.next().await {
+        let field_name = field.name().to_string();
         
         match field_name.as_str() {
             "knowledge_base_id" => {
                 let mut data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取知识库 ID 失败: {}", e);
-                    ApiError::bad_request("无效的知识库 ID")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     data.extend_from_slice(&chunk);
                 }
                 let kb_id_str = String::from_utf8(data).map_err(|e| {
@@ -1513,10 +1494,7 @@ pub async fn batch_import_documents(
             }
             "options" => {
                 let mut data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取选项失败: {}", e);
-                    ApiError::bad_request("无效的选项")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     data.extend_from_slice(&chunk);
                 }
                 let options_str = String::from_utf8(data).map_err(|e| {
@@ -1534,15 +1512,12 @@ pub async fn batch_import_documents(
                 let content_type = field.content_type().map(|ct| ct.to_string());
                 
                 let mut file_data = Vec::new();
-                while let Some(chunk) = field.try_next().await.map_err(|e| {
-                    error!("读取文件数据失败: {}", e);
-                    ApiError::bad_request("文件读取失败")
-                })? {
+                while let Some(Ok(chunk)) = field.next().await {
                     file_data.extend_from_slice(&chunk);
                     
                     // 限制单个文件大小（例如 50MB）
                     if file_data.len() > 50 * 1024 * 1024 {
-                        return Ok(ApiError::payload_too_large("单个文件大小超过限制（50MB）").into());
+                        return Ok(HttpResponseBuilder::payload_too_large::<()>("单个文件大小超过限制（50MB）".to_string()).unwrap());
                     }
                 }
                 
@@ -1554,11 +1529,7 @@ pub async fn batch_import_documents(
             }
             _ => {
                 // 忽略未知字段
-                while let Some(_chunk) = field.try_next().await.map_err(|_| {
-                    ApiError::bad_request("无效的字段数据")
-                })? {
-                    // 消费数据
-                }
+                while let Some(_) = field.next().await {}
             }
         }
     }
@@ -1570,7 +1541,7 @@ pub async fn batch_import_documents(
     
     // 检查知识库是否存在且属于当前租户
     let kb = KnowledgeBase::find_by_id(knowledge_base_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -1580,7 +1551,7 @@ pub async fn batch_import_documents(
     
     if kb.is_none() {
         warn!("知识库不存在或无权访问: {}", knowledge_base_id);
-        return Ok(ApiError::not_found("知识库不存在").into());
+        return Ok(HttpResponseBuilder::not_found::<()>("知识库不存在".to_string()).unwrap());
     }
     
     // TODO: 这里应该启动异步批量导入任务
@@ -1596,7 +1567,7 @@ pub async fn batch_import_documents(
         started_at: now,
     };
     
-    Ok(ApiResponse::accepted(response).into_http_response()?)
+    Ok(ApiResponse::accepted(response).into_http_response().unwrap())
 }
 
 /// 批量导出文档
@@ -1620,12 +1591,12 @@ pub async fn batch_import_documents(
 )]
 pub async fn batch_export_documents(
     db: web::Data<DatabaseConnection>,
-    tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    tenant_info: web::ReqData<TenantInfo>,
+    _user_ctx: web::ReqData<UserContext>,
     req: web::Json<BatchExportRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("批量导出文档请求: 租户={}, 知识库={:?}", 
-          tenant_ctx.tenant_id, req.knowledge_base_id);
+          tenant_info.id, req.knowledge_base_id);
     
     let export_id = Uuid::new_v4();
     let now = Utc::now();
@@ -1633,12 +1604,12 @@ pub async fn batch_export_documents(
     // 构建查询条件
     let mut query = Document::find()
         .inner_join(KnowledgeBase)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id));
+        .filter(knowledge_base::Column::TenantId.eq(tenant_info.id));
     
     if let Some(kb_id) = req.knowledge_base_id {
         // 检查知识库是否存在
         let kb = KnowledgeBase::find_by_id(kb_id)
-            .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
+            .filter(knowledge_base::Column::TenantId.eq(tenant_info.id))
             .one(db.as_ref())
             .await
             .map_err(|e| {
@@ -1648,7 +1619,7 @@ pub async fn batch_export_documents(
         
         if kb.is_none() {
             warn!("知识库不存在或无权访问: {}", kb_id);
-            return Ok(HttpResponseBuilder::not_found::<()>("知识库")?);
+            return Ok(HttpResponseBuilder::not_found::<()>("知识库").unwrap());
         }
         
         query = query.filter(document::Column::KnowledgeBaseId.eq(kb_id));
@@ -1667,7 +1638,7 @@ pub async fn batch_export_documents(
     })? as u32;
     
     if document_count == 0 {
-        return Ok(ApiError::bad_request("没有找到要导出的文档").into());
+        return Ok(HttpResponseBuilder::bad_request::<()>("没有找到要导出的文档".to_string()).unwrap());
     }
     
     // TODO: 这里应该启动异步导出任务
@@ -1687,7 +1658,7 @@ pub async fn batch_export_documents(
         completed_at: None,
     };
     
-    Ok(ApiResponse::accepted(response).into_http_response()?)
+    Ok(ApiResponse::accepted(response).into_http_response().unwrap())
 }
 
 /// 获取批量操作状态
@@ -1711,8 +1682,8 @@ pub async fn batch_export_documents(
 )]
 pub async fn get_batch_operation_status(
     _db: web::Data<DatabaseConnection>,
-    _tenant_ctx: TenantContext,
-    _user_ctx: UserContext,
+    _tenant_info: web::ReqData<TenantInfo>,
+    _user_ctx: web::ReqData<UserContext>,
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let batch_id = path.into_inner();
@@ -1733,7 +1704,7 @@ pub async fn get_batch_operation_status(
         "message": "批量操作已完成"
     });
     
-    Ok(ApiResponse::ok(status).into_http_response()?)
+    Ok(ApiResponse::ok(status).into_http_response().unwrap())
 }
 
 /// 配置文档路由
