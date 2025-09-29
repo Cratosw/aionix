@@ -88,7 +88,7 @@ pub async fn install_plugin(
     tenant_info: web::ReqData<TenantInfo>,
     request: web::Json<InstallPluginRequest>,
 ) -> ActixResult<HttpResponse> {
-    debug!("安装插件: {} (tenant_id={})", request.source, tenant_info.tenant_id);
+    debug!("安装插件: {} (tenant_id={})", request.source, tenant_info.context.tenant_id);
     
     match plugin_manager.install_plugin(request.into_inner()).await {
         Ok(response) => {
@@ -126,7 +126,7 @@ pub async fn uninstall_plugin(
     path: web::Path<String>,
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
-    debug!("卸载插件: {} (tenant_id={})", plugin_id, tenant_info.tenant_id);
+    debug!("卸载插件: {} (tenant_id={})", plugin_id, tenant_info.context.tenant_id);
     
     match plugin_manager.uninstall_plugin(&plugin_id).await {
         Ok(_) => {
@@ -167,7 +167,7 @@ pub async fn list_plugins(
     plugin_manager: web::Data<Arc<PluginManager>>,
     tenant_info: web::ReqData<TenantInfo>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取插件列表: tenant_id={}", tenant_info.tenant_id);
+    debug!("获取插件列表: tenant_id={}", tenant_info.context.tenant_id);
     
     match plugin_manager.list_plugins().await {
         Ok(response) => {
@@ -203,7 +203,7 @@ pub async fn get_plugin_info(
     path: web::Path<String>,
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
-    debug!("获取插件信息: {} (tenant_id={})", plugin_id, tenant_info.tenant_id);
+    debug!("获取插件信息: {} (tenant_id={})", plugin_id, tenant_info.context.tenant_id);
     
     match plugin_manager.get_plugin_info(&plugin_id).await {
         Ok(info) => {
@@ -245,7 +245,7 @@ pub async fn call_plugin(
     request: web::Json<PluginCallRequest>,
 ) -> ActixResult<HttpResponse> {
     debug!("调用插件: {} - {} (tenant_id={})", 
-           request.plugin_id, request.method, tenant_info.tenant_id);
+           request.plugin_id, request.method, tenant_info.context.tenant_id);
     
     let start_time = std::time::Instant::now();
     let call_time = chrono::Utc::now();
@@ -253,7 +253,7 @@ pub async fn call_plugin(
     // 构建插件上下文
     let context = PluginContext {
         tenant_id: tenant_info.id,
-        user_id: tenant_info.user_id,
+        user_id: tenant_info.context.tenant_id, // 临时使用 tenant_id，需要从其他地方获取 user_id
         session_id: None,
         request_id: Uuid::new_v4(),
         variables: HashMap::new(),
@@ -326,7 +326,7 @@ pub async fn control_plugin(
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
     debug!("控制插件: {} - {:?} (tenant_id={})", 
-           plugin_id, request.action, tenant_info.tenant_id);
+           plugin_id, request.action, tenant_info.context.tenant_id);
     
     let result = match request.action {
         PluginAction::Start => plugin_manager.start_plugin(&plugin_id).await,
@@ -394,7 +394,7 @@ pub async fn update_plugin_config(
     request: web::Json<UpdatePluginConfigRequest>,
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
-    debug!("更新插件配置: {} (tenant_id={})", plugin_id, tenant_info.tenant_id);
+    debug!("更新插件配置: {} (tenant_id={})", plugin_id, tenant_info.context.tenant_id);
     
     // 构建新的配置
     let config = PluginConfig {
@@ -457,7 +457,7 @@ pub async fn search_plugins(
     request: web::Json<PluginSearchQuery>,
 ) -> ActixResult<HttpResponse> {
     debug!("搜索插件: query={:?} (tenant_id={})", 
-           request.query, tenant_info.tenant_id);
+           request.query, tenant_info.context.tenant_id);
     
     // TODO: 通过插件管理器访问注册表进行搜索
     // 目前返回空结果
@@ -484,7 +484,7 @@ pub async fn get_plugin_statistics(
     plugin_manager: web::Data<Arc<PluginManager>>,
     tenant_info: web::ReqData<TenantInfo>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取插件统计: tenant_id={}", tenant_info.tenant_id);
+    debug!("获取插件统计: tenant_id={}", tenant_info.context.tenant_id);
     
     // TODO: 通过插件管理器获取统计信息
     // 目前返回空统计
@@ -522,7 +522,7 @@ pub async fn get_plugin_logs(
     query: web::Query<LogQuery>,
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
-    debug!("获取插件日志: {} (tenant_id={})", plugin_id, tenant_info.tenant_id);
+    debug!("获取插件日志: {} (tenant_id={})", plugin_id, tenant_info.context.tenant_id);
     
     match plugin_manager.get_plugin_logs(&plugin_id, query.limit).await {
         Ok(logs) => {
@@ -569,7 +569,7 @@ pub async fn cleanup_plugin_data(
     path: web::Path<String>,
 ) -> ActixResult<HttpResponse> {
     let plugin_id = path.into_inner();
-    debug!("清理插件数据: {} (tenant_id={})", plugin_id, tenant_info.tenant_id);
+    debug!("清理插件数据: {} (tenant_id={})", plugin_id, tenant_info.context.tenant_id);
     
     match plugin_manager.cleanup_plugin_data(&plugin_id).await {
         Ok(_) => {

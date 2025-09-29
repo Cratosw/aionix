@@ -215,7 +215,7 @@ pub async fn ask_question(
     req: web::Json<QaRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("问答查询请求: 租户={}, 用户={}, 问题={}", 
-          tenant_ctx.tenant.id, user_ctx.user.id, req.question);
+          tenant_ctx.tenant_id, user_ctx.user.id, req.question);
     
     if req.question.trim().is_empty() {
         return Ok(HttpResponse::BadRequest().json(ApiError::bad_request("问题不能为空")));
@@ -234,7 +234,7 @@ pub async fn ask_question(
     let rag_request = RagQueryRequest {
         question: req.question.clone(),
         knowledge_base_id: req.knowledge_base_id,
-        tenant_id: tenant_ctx.tenant.id,
+        tenant_id: tenant_ctx.tenant_id,
         retrieval_params: req.retrieval_params.clone(),
         generation_params: req.generation_params.clone(),
         session_id: Some(session_id.clone()),
@@ -300,7 +300,7 @@ pub async fn ask_question_stream(
     req: web::Json<QaRequest>,
 ) -> ActixResult<HttpResponse> {
     info!("流式问答查询请求: 租户={}, 用户={}, 问题={}", 
-          tenant_ctx.tenant.id, user_ctx.user.id, req.question);
+          tenant_ctx.tenant_id, user_ctx.user.id, req.question);
     
     if req.question.trim().is_empty() {
         return Ok(HttpResponse::BadRequest().json(ApiError::bad_request("问题不能为空")));
@@ -314,7 +314,7 @@ pub async fn ask_question_stream(
     let stream = create_qa_stream(
         rag_engine.get_ref().clone(),
         req.into_inner(),
-        tenant_ctx.tenant.id,
+        tenant_ctx.tenant_id,
         user_ctx.user.id,
         session_id,
     );
@@ -352,7 +352,7 @@ pub async fn get_session_history(
     query: web::Query<SessionHistoryQuery>,
 ) -> ActixResult<HttpResponse> {
     let session_id = path.into_inner();
-    debug!("获取会话历史: session_id={}, 租户={}", session_id, tenant_ctx.tenant.id);
+    debug!("获取会话历史: session_id={}, 租户={}", session_id, tenant_ctx.tenant_id);
     
     // TODO: 从数据库查询会话历史
     // 目前返回模拟数据
@@ -454,7 +454,7 @@ pub async fn get_suggestions(
     req: web::Json<QaSuggestionsRequest>,
 ) -> ActixResult<HttpResponse> {
     debug!("获取问题建议: 部分问题={}, 租户={}", 
-           req.partial_question, tenant_ctx.tenant.id);
+           req.partial_question, tenant_ctx.tenant_id);
     
     if req.partial_question.trim().is_empty() {
         return Ok(ApiError::bad_request("部分问题不能为空").into());
@@ -575,7 +575,7 @@ fn create_qa_stream(
         };
         
         if let Ok(event_data) = serde_json::to_string(&start_event) {
-            let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+            let _ = tx.send(Ok(sse::Event::new().data(event_data)));
         }
         
         // 发送检索事件
@@ -588,7 +588,7 @@ fn create_qa_stream(
         };
         
         if let Ok(event_data) = serde_json::to_string(&retrieval_event) {
-            let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+            let _ = tx.send(Ok(sse::Event::new().data(event_data)));
         }
         
         // 构建 RAG 查询请求
@@ -615,7 +615,7 @@ fn create_qa_stream(
                 };
                 
                 if let Ok(event_data) = serde_json::to_string(&generation_event) {
-                    let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+                    let _ = tx.send(Ok(sse::Event::new().data(event_data)));
                 }
                 
                 // 模拟流式输出答案
@@ -638,7 +638,7 @@ fn create_qa_stream(
                     };
                     
                     if let Ok(event_data) = serde_json::to_string(&chunk_event) {
-                        let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+                        let _ = tx.send(Ok(sse::Event::new().data(event_data)));
                     }
                     
                     // 模拟打字效果
@@ -667,7 +667,7 @@ fn create_qa_stream(
                 };
                 
                 if let Ok(event_data) = serde_json::to_string(&complete_event) {
-                    let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+                    let _ = tx.send(Ok(sse::Event::new().data(event_data)));
                 }
             }
             Err(e) => {
@@ -682,7 +682,7 @@ fn create_qa_stream(
                 };
                 
                 if let Ok(event_data) = serde_json::to_string(&error_event) {
-                    let _ = tx.send(Ok(sse::Event::default().data(event_data)));
+                    let _ = tx.send(Ok(sse::Event::new().data(event_data)));
                 }
             }
         }

@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Result as ActixResult};
+use actix_web::{HttpResponse, Result as ActixResult, ResponseError};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -540,5 +540,29 @@ impl<T: std::fmt::Debug> std::fmt::Display for ApiResponse<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ApiResponse {{ success: {}, data: {:?}, error: {:?} }}", 
                self.success, self.data, self.error)
+    }
+}
+
+/// 为 ApiResponse 实现 ResponseError trait
+impl<T: Serialize + std::fmt::Debug> ResponseError for ApiResponse<T> {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        if self.success {
+            actix_web::http::StatusCode::OK
+        } else {
+            match self.error.as_ref().map(|e| e.code.as_str()) {
+                Some("VALIDATION_ERROR") => actix_web::http::StatusCode::BAD_REQUEST,
+                Some("UNAUTHORIZED") => actix_web::http::StatusCode::UNAUTHORIZED,
+                Some("FORBIDDEN") => actix_web::http::StatusCode::FORBIDDEN,
+                Some("NOT_FOUND") => actix_web::http::StatusCode::NOT_FOUND,
+                Some("CONFLICT") => actix_web::http::StatusCode::CONFLICT,
+                Some("QUOTA_EXCEEDED") | Some("RATE_LIMITED") => actix_web::http::StatusCode::TOO_MANY_REQUESTS,
+                Some("INTERNAL_ERROR") => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                _ => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code()).json(self)
     }
 }

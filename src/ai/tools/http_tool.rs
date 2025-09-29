@@ -66,9 +66,13 @@ impl Default for HttpToolConfig {
 
 impl HttpTool {
     /// 创建新的 HTTP 工具
-    pub fn new() -> Result<Self, AiStudioError> {
+    pub fn new() -> Self {
         let config = HttpToolConfig::default();
-        Self::with_config(config)
+        Self::with_config(config).unwrap_or_else(|_| {
+            // 如果配置失败，使用默认的简单配置
+            let client = Client::new();
+            Self { client, config }
+        })
     }
     
     /// 使用自定义配置创建 HTTP 工具

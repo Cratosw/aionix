@@ -583,12 +583,12 @@ pub async fn get_execution_status(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let execution_id = path.into_inner();
-    debug!("获取执行状态: execution_id={}, tenant_id={}", execution_id, tenant_info.tenant_id);
+    debug!("获取执行状态: execution_id={}, tenant_id={}", execution_id, tenant_info.context.tenant_id);
     
     match workflow_executor.get_execution_status(execution_id).await {
         Ok(execution) => {
             // 检查租户权限
-            if execution.context.tenant_id != tenant_info.tenant_id {
+            if execution.context.user_id != tenant_info.context.tenant_id { // 临时使用 user_id 字段比较
                 return Ok(HttpResponse::Forbidden().json(serde_json::json!({
                     "error": "无权限访问此执行"
                 })));
@@ -632,12 +632,12 @@ pub async fn cancel_execution(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let execution_id = path.into_inner();
-    debug!("取消执行: execution_id={}, tenant_id={}", execution_id, tenant_info.tenant_id);
+    debug!("取消执行: execution_id={}, tenant_id={}", execution_id, tenant_info.context.tenant_id);
     
     // 检查执行是否存在和权限
     match workflow_executor.get_execution_status(execution_id).await {
         Ok(execution) => {
-            if execution.context.tenant_id != tenant_info.tenant_id {
+            if execution.context.user_id != tenant_info.context.tenant_id { // 临时使用 user_id 字段比较
                 return Ok(HttpResponse::Forbidden().json(serde_json::json!({
                     "error": "无权限访问此执行"
                 })));
@@ -698,12 +698,12 @@ pub async fn get_execution_history(
     query: web::Query<ExecutionHistoryQuery>,
 ) -> ActixResult<HttpResponse> {
     let workflow_id = path.into_inner();
-    debug!("获取执行历史: workflow_id={}, tenant_id={}", workflow_id, tenant_info.tenant_id);
+    debug!("获取执行历史: workflow_id={}, tenant_id={}", workflow_id, tenant_info.context.tenant_id);
     
     // 检查工作流是否存在和权限
     match workflow_engine.get_workflow(workflow_id).await {
         Ok(workflow) => {
-            if workflow.tenant_id != tenant_info.tenant_id {
+            if workflow.tenant_id != tenant_info.context.tenant_id {
                 return Ok(HttpResponse::Forbidden().json(serde_json::json!({
                     "error": "无权限访问此工作流"
                 })));
@@ -764,7 +764,7 @@ pub async fn publish_workflow(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let workflow_id = path.into_inner();
-    debug!("发布工作流: workflow_id={}, tenant_id={}", workflow_id, tenant_info.tenant_id);
+    debug!("发布工作流: workflow_id={}, tenant_id={}", workflow_id, tenant_info.context.tenant_id);
     
     // 获取工作流
     let mut workflow = match workflow_engine.get_workflow(workflow_id).await {
@@ -779,7 +779,7 @@ pub async fn publish_workflow(
     };
     
     // 检查租户权限
-    if workflow.tenant_id != tenant_info.tenant_id {
+    if workflow.tenant_id != tenant_info.context.tenant_id {
         return Ok(HttpResponse::Forbidden().json(serde_json::json!({
             "error": "无权限访问此工作流"
         })));

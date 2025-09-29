@@ -266,7 +266,7 @@ pub enum TaskStatus {
 }
 
 /// 执行步骤
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionStep {
     /// 步骤 ID
     pub step_id: Uuid,
@@ -289,7 +289,7 @@ pub struct ExecutionStep {
 }
 
 /// 步骤类型
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum StepType {
     Reasoning,
@@ -301,7 +301,7 @@ pub enum StepType {
 }
 
 /// 步骤状态
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum StepStatus {
     Running,

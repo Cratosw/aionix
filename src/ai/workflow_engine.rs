@@ -788,7 +788,7 @@ impl WorkflowEngine {
         
         // 检查是否存在循环
         if result.len() != nodes.len() {
-            return Err(AiStudioError::validation("检测到循环依赖"));
+            return Err(AiStudioError::validation("workflow", "检测到循环依赖"));
         }
         
         Ok(result)

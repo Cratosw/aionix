@@ -396,16 +396,16 @@ impl ToolLoader {
     /// 验证工具配置
     fn validate_tool_config(&self, config: &ToolConfig) -> Result<(), AiStudioError> {
         if config.name.is_empty() {
-            return Err(AiStudioError::validation("工具名称不能为空"));
+            return Err(AiStudioError::validation("name", "工具名称不能为空"));
         }
         
         if config.version.is_empty() {
-            return Err(AiStudioError::validation("工具版本不能为空"));
+            return Err(AiStudioError::validation("version", "工具版本不能为空"));
         }
         
         // 验证参数模式
         if !config.parameters_schema.is_object() && !config.parameters_schema.is_null() {
-            return Err(AiStudioError::validation("参数模式必须是对象或 null"));
+            return Err(AiStudioError::validation("parameters_schema", "参数模式必须是对象或 null"));
         }
         
         Ok(())

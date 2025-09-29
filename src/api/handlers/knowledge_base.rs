@@ -209,11 +209,11 @@ pub async fn create_knowledge_base(
     _user_ctx: UserContext,
     req: web::Json<CreateKnowledgeBaseRequest>,
 ) -> ActixResult<HttpResponse> {
-    info!("创建知识库请求: 租户={}, 名称={}", tenant_ctx.tenant.id, req.name);
+    info!("创建知识库请求: 租户={}, 名称={}", tenant_ctx.tenant_id, req.name);
     
     // 检查知识库名称是否已存在
     let existing = KnowledgeBase::find()
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .filter(knowledge_base::Column::Name.eq(&req.name))
         .one(db.as_ref())
         .await
@@ -240,7 +240,7 @@ pub async fn create_knowledge_base(
     
     let new_kb = knowledge_base::ActiveModel {
         id: sea_orm::Set(kb_id),
-        tenant_id: sea_orm::Set(tenant_ctx.tenant.id),
+        tenant_id: sea_orm::Set(tenant_ctx.tenant_id),
         name: sea_orm::Set(req.name.clone()),
         description: sea_orm::Set(req.description.clone()),
         kb_type: sea_orm::Set(req.kb_type.clone()),
@@ -294,14 +294,14 @@ pub async fn list_knowledge_bases(
     _user_ctx: UserContext,
     query: web::Query<KnowledgeBaseSearchQuery>,
 ) -> ActixResult<HttpResponse> {
-    debug!("获取知识库列表: 租户={}", tenant_ctx.tenant.id);
+    debug!("获取知识库列表: 租户={}", tenant_ctx.tenant_id);
     
     let mut query_params = query.into_inner();
     query_params.pagination.validate();
     
     // 构建查询
     let mut select = KnowledgeBase::find()
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id));
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id));
     
     // 添加搜索条件
     if let Some(q) = &query_params.q {
@@ -397,10 +397,10 @@ pub async fn get_knowledge_base(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let kb_id = path.into_inner();
-    debug!("获取知识库详情: id={}, 租户={}", kb_id, tenant_ctx.tenant.id);
+    debug!("获取知识库详情: id={}, 租户={}", kb_id, tenant_ctx.tenant_id);
     
     let kb = KnowledgeBase::find_by_id(kb_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -457,11 +457,11 @@ pub async fn update_knowledge_base(
     req: web::Json<UpdateKnowledgeBaseRequest>,
 ) -> ActixResult<HttpResponse> {
     let kb_id = path.into_inner();
-    info!("更新知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant.id);
+    info!("更新知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant_id);
     
     // 查找知识库
     let kb = KnowledgeBase::find_by_id(kb_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -487,7 +487,7 @@ pub async fn update_knowledge_base(
     if let Some(new_name) = &req.name {
         if new_name != &kb.name {
             let existing = KnowledgeBase::find()
-                .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+                .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
                 .filter(knowledge_base::Column::Name.eq(new_name))
                 .filter(knowledge_base::Column::Id.ne(kb_id))
                 .one(db.as_ref())
@@ -579,11 +579,11 @@ pub async fn delete_knowledge_base(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let kb_id = path.into_inner();
-    info!("删除知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant.id);
+    info!("删除知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant_id);
     
     // 查找知识库
     let kb = KnowledgeBase::find_by_id(kb_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -651,10 +651,10 @@ pub async fn get_knowledge_base_stats(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let kb_id = path.into_inner();
-    debug!("获取知识库统计信息: id={}, 租户={}", kb_id, tenant_ctx.tenant.id);
+    debug!("获取知识库统计信息: id={}, 租户={}", kb_id, tenant_ctx.tenant_id);
     
     let kb = KnowledgeBase::find_by_id(kb_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
@@ -708,11 +708,11 @@ pub async fn reindex_knowledge_base(
     path: web::Path<Uuid>,
 ) -> ActixResult<HttpResponse> {
     let kb_id = path.into_inner();
-    info!("重新索引知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant.id);
+    info!("重新索引知识库请求: id={}, 租户={}", kb_id, tenant_ctx.tenant_id);
     
     // 查找知识库
     let kb = KnowledgeBase::find_by_id(kb_id)
-        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant.id))
+        .filter(knowledge_base::Column::TenantId.eq(tenant_ctx.tenant_id))
         .one(db.as_ref())
         .await
         .map_err(|e| {
